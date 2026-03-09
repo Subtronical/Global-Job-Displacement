@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Job Displacement · Earth Globe</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Serif+Display&display=swap');
+
+:root {
+  --panel-bg: #f7f9fc;
+  --panel-border: #e2e8f0;
+  --panel-shadow: rgba(20,40,80,0.07);
+  --text-primary: #1a2340;
+  --text-secondary: #4a5568;
+  --text-muted: #8898aa;
+  --loss-color: #c53030;
+  --gain-color: #276749;
+  --accent: #3b6ef5;
+  --card-bg: #ffffff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#060d1a; font-family:'DM Sans',sans-serif; color:var(--text-primary); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+/* TOP BAR */
+#topbar { background:rgba(255,255,255,0.97); backdrop-filter:blur(16px); border-bottom:1px solid var(--panel-border); padding:9px 18px; display:flex; align-items:center; justify-content:space-between; z-index:20; flex-shrink:0; box-shadow:0 2px 14px var(--panel-shadow); }
+#title-block h1 { font-family:'DM Serif Display',serif; font-size:17px; color:var(--text-primary); letter-spacing:0.2px; }
+#title-block p { font-size:10px; color:var(--text-muted); margin-top:1px; }
+.top-stat { text-align:center; padding:0 14px; border-right:1px solid var(--panel-border); }
+.top-stat:last-child { border-right:none; }
+.top-stat-label { font-size:8px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); }
+.top-stat-val { font-size:19px; font-weight:700; margin-top:1px; line-height:1.2; }
+#controls { display:flex; gap:4px; align-items:center; }
+.yr-btn { background:transparent; color:var(--text-muted); border:1px solid var(--panel-border); padding:5px 11px; font-size:12px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; border-radius:6px; transition:all 0.15s; }
+.yr-btn:hover { background:#eef2ff; color:var(--accent); border-color:#c7d4ff; }
+.yr-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+#play-btn { background:var(--accent); color:#fff; border:none; padding:6px 15px; font-size:11px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; border-radius:6px; margin-left:4px; transition:all 0.15s; }
+#play-btn:hover { background:#2855d0; }
+#play-btn.playing { background:#e53e3e; }
+
+/* LAYOUT */
+#main { display:flex; flex:1; overflow:hidden; }
+
+/* LEFT PANEL */
+#left-panel { width:255px; background:var(--panel-bg); border-right:1px solid var(--panel-border); display:flex; flex-direction:column; overflow-y:auto; box-shadow:2px 0 14px var(--panel-shadow); }
+#left-panel::-webkit-scrollbar { width:3px; }
+#left-panel::-webkit-scrollbar-thumb { background:#dde3f0; border-radius:3px; }
+
+/* GLOBE */
+#globe-wrap { flex:1; position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; min-width:0; }
+#globe-canvas-container { position:relative; width:380px; height:380px; flex-shrink:0; }
+#globe-canvas-container canvas { position:absolute; top:0; left:0; width:380px !important; height:380px !important; }
+#globe-hint { position:absolute; bottom:-28px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.88); backdrop-filter:blur(10px); padding:4px 12px; border-radius:20px; font-size:10px; color:#4a5568; font-weight:500; border:1px solid rgba(255,255,255,0.7); box-shadow:0 2px 10px rgba(0,0,0,0.18); white-space:nowrap; pointer-events:none; z-index:5; }
+
+/* RIGHT PANEL */
+#right-panel { width:275px; background:var(--panel-bg); border-left:1px solid var(--panel-border); display:flex; flex-direction:column; overflow-y:auto; box-shadow:-2px 0 14px var(--panel-shadow); }
+#right-panel::-webkit-scrollbar { width:3px; }
+#right-panel::-webkit-scrollbar-thumb { background:#dde3f0; border-radius:3px; }
+
+/* PANEL SECTIONS */
+.panel-section { padding:14px; border-bottom:1px solid var(--panel-border); }
+.section-title { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:11px; display:flex; align-items:center; gap:7px; }
+.section-title .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+.industry-row { display:flex; align-items:center; gap:9px; padding:7px 0; border-bottom:1px solid #f0f4fa; }
+.industry-row:last-child { border-bottom:none; }
+.ind-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.ind-info { flex:1; min-width:0; }
+.ind-name { font-size:11px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ind-sub { font-size:9px; color:var(--text-muted); margin-top:1px; }
+.ind-bar { height:3px; border-radius:2px; margin-top:4px; }
+.ind-change { font-size:12px; font-weight:700; text-align:right; flex-shrink:0; min-width:36px; }
+
+.legend-row { display:flex; align-items:center; gap:9px; margin-bottom:7px; font-size:11px; color:var(--text-secondary); }
+.legend-pip { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+
+/* REGION LIST */
+.rg-item { display:flex; align-items:center; gap:9px; padding:8px 10px; margin-bottom:5px; background:var(--card-bg); border:1px solid var(--panel-border); border-radius:10px; cursor:pointer; transition:all 0.15s; box-shadow:0 1px 4px var(--panel-shadow); }
+.rg-item:hover { box-shadow:0 3px 12px rgba(59,110,245,0.12); border-color:#c7d4ff; transform:translateY(-1px); }
+.rg-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.rg-name { flex:1; font-size:11px; font-weight:500; color:var(--text-secondary); }
+.rg-risk { font-size:12px; font-weight:700; }
+.rg-disp { font-size:9px; color:var(--loss-color); font-weight:500; }
+
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:13px; }
+.stat-card { background:var(--card-bg); border:1px solid var(--panel-border); border-radius:9px; padding:9px 11px; box-shadow:0 1px 4px var(--panel-shadow); }
+.stat-label { font-size:8px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:3px; }
+.stat-val { font-size:17px; font-weight:700; line-height:1.2; }
+
+.bar-row { display:flex; justify-content:space-between; font-size:11px; color:var(--text-secondary); margin-bottom:4px; font-weight:500; }
+.bar-track { height:5px; background:#e8ecf5; border-radius:3px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:3px; transition:width 0.5s cubic-bezier(.4,0,.2,1); }
+
+.region-name-big { font-family:'DM Serif Display',serif; font-size:19px; color:var(--text-primary); margin-bottom:4px; }
+.risk-pill { display:inline-block; padding:2px 10px; border-radius:12px; font-size:10px; font-weight:700; letter-spacing:0.5px; margin-bottom:13px; }
+.traj-wrap { background:var(--card-bg); border:1px solid var(--panel-border); border-radius:9px; padding:10px; }
+
+/* TABS */
+#tab-nav { background:rgba(255,255,255,0.97); border-bottom:1px solid var(--panel-border); display:flex; gap:0; padding:0 20px; flex-shrink:0; }
+.tab-btn { background:transparent; border:none; border-bottom:3px solid transparent; padding:10px 18px; font-size:13px; font-weight:600; font-family:'DM Sans',sans-serif; color:var(--text-muted); cursor:pointer; transition:all 0.18s; margin-bottom:-1px; }
+.tab-btn:hover { color:var(--accent); }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+/* POP TAB */
+#pop-tab { font-family:'DM Sans',sans-serif; flex:1; overflow-y:auto; background:#f0f4f8; padding:28px 32px; }
+#pop-tab::-webkit-scrollbar { width:4px; }
+#pop-tab::-webkit-scrollbar-thumb { background:#c5d0e8; border-radius:4px; }
+.pop-section-title { font-family:'DM Serif Display',serif; font-size:22px; color:#1a2340; margin-bottom:4px; }
+.pop-section-sub { font-size:13px; color:#718096; margin-bottom:24px; line-height:1.6; }
+.country-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 2px 12px rgba(20,40,80,0.06); margin-bottom:18px; overflow:hidden; }
+.country-card-header { display:flex; align-items:flex-start; gap:14px; padding:18px 20px 14px; }
+.country-flag-big { font-size:36px; flex-shrink:0; line-height:1; }
+.country-title { flex:1; }
+.country-name-h { font-family:'DM Serif Display',serif; font-size:18px; color:#1a2340; margin-bottom:2px; }
+.country-tagline { font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+.country-score-big { text-align:right; }
+.crisis-score { font-size:28px; font-weight:700; line-height:1; }
+.crisis-label { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#8898aa; margin-top:2px; }
+.country-metrics { display:grid; grid-template-columns:repeat(5,1fr); gap:0; border-top:1px solid #f0f4f8; }
+.metric-cell { padding:10px 8px; text-align:center; border-right:1px solid #f0f4f8; }
+.metric-cell:last-child { border-right:none; }
+.metric-val { font-size:14px; font-weight:700; margin-bottom:2px; }
+.metric-lbl { font-size:8px; font-weight:600; letter-spacing:0.8px; text-transform:uppercase; color:#8898aa; }
+.metric-bar { height:3px; border-radius:2px; margin-top:4px; background:#edf2f7; }
+.metric-bar-fill { height:100%; border-radius:2px; }
+.country-analysis { padding:14px 20px 16px; background:#fafbfd; border-top:1px solid #f0f4f8; font-size:12px; color:#4a5568; line-height:1.75; }
+.country-analysis strong { color:#1a2340; }
+.risk-tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:10px; font-weight:700; margin-right:4px; margin-bottom:3px; }
+.wildcards { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="title-block">
+    <h1>AI Displacement · Global View</h1>
+    <p>Back-Office Operations · Service Sector · 2025–2029</p>
+  </div>
+  <div style="display:flex;">
+    <div class="top-stat"><div class="top-stat-label">Jobs Displaced</div><div class="top-stat-val" id="s-displaced" style="color:#e53e3e">3.7M</div></div>
+    <div class="top-stat"><div class="top-stat-label">New Roles</div><div class="top-stat-val" id="s-new" style="color:#276749">0.95M</div></div>
+    <div class="top-stat"><div class="top-stat-label">Net Loss</div><div class="top-stat-val" id="s-net" style="color:#c05621">−2.75M</div></div>
+    <div class="top-stat"><div class="top-stat-label">Avg Risk</div><div class="top-stat-val" id="s-risk" style="color:#3b6ef5">51%</div></div>
+  </div>
+  <div id="controls">
+    <button class="yr-btn active" onclick="setYear(2025)">2025</button>
+    <button class="yr-btn" onclick="setYear(2026)">2026</button>
+    <button class="yr-btn" onclick="setYear(2027)">2027</button>
+    <button class="yr-btn" onclick="setYear(2028)">2028</button>
+    <button class="yr-btn" onclick="setYear(2029)">2029</button>
+    <button id="play-btn" onclick="togglePlay()">▶ Play</button>
+  </div>
+</div>
+
+<div id="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('globe')">🌍 Globe View</button>
+  <button class="tab-btn" onclick="switchTab('pop')">👥 Population Impact</button>
+</div>
+
+<div id="main">
+  <div id="left-panel">
+    <div class="panel-section">
+      <div class="section-title" style="color:#c53030;"><div class="dot" style="background:#e53e3e;"></div>Industries Losing Jobs</div>
+      <div id="losing-list"></div>
+    </div>
+    <div class="panel-section">
+      <div class="section-title" style="color:#276749;"><div class="dot" style="background:#38a169;"></div>Industries Gaining Jobs</div>
+      <div id="gaining-list"></div>
+    </div>
+    <div class="panel-section">
+      <div class="section-title" style="color:var(--text-muted);"><div class="dot" style="background:#8898aa;"></div>Risk Scale</div>
+      <div class="legend-row"><div class="legend-pip" style="background:#ff1a33;"></div>Critical — 85%+</div>
+      <div class="legend-row"><div class="legend-pip" style="background:#ff6600;"></div>Severe — 70–84%</div>
+      <div class="legend-row"><div class="legend-pip" style="background:#ffaa00;"></div>High — 55–69%</div>
+      <div class="legend-row"><div class="legend-pip" style="background:#ddc200;"></div>Moderate — 40–54%</div>
+      <div class="legend-row" style="margin-bottom:0;"><div class="legend-pip" style="background:#22cc55;"></div>Emerging — &lt;40%</div>
+    </div>
+  </div>
+
+  <div id="globe-wrap">
+    <div id="globe-canvas-container">
+      <div id="globe-hint">🌍 Drag to rotate · Click a spike to inspect</div>
+    </div>
+  </div>
+
+  <div id="right-panel">
+    <div id="right-panel-inner" style="padding:14px;"></div>
+  </div>
+</div>
+
+</div><!-- end #main -->
+
+<div id="pop-tab" style="display:none;"></div>
+
+<!-- Three.js r128 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────
+const REGIONS = {
+  "north-america":  { name:"North America",  lat:40,  lng:-100, sectors:["Finance","Insurance","Healthcare Admin","Legal Ops"],
+    yearly:{2025:{risk:62,displaced:1.2,newRoles:0.3,automation:38},2026:{risk:71,displaced:1.8,newRoles:0.5,automation:52},2027:{risk:79,displaced:2.4,newRoles:0.7,automation:64},2028:{risk:85,displaced:2.9,newRoles:1.0,automation:74},2029:{risk:89,displaced:3.3,newRoles:1.4,automation:82}}},
+  "europe":         { name:"Europe",          lat:50,  lng:15,   sectors:["Banking","Public Sector","Retail Ops","Telecom"],
+    yearly:{2025:{risk:48,displaced:0.7,newRoles:0.2,automation:28},2026:{risk:57,displaced:1.1,newRoles:0.3,automation:38},2027:{risk:65,displaced:1.5,newRoles:0.5,automation:49},2028:{risk:72,displaced:1.9,newRoles:0.7,automation:59},2029:{risk:78,displaced:2.3,newRoles:1.0,automation:68}}},
+  "south-asia":     { name:"South Asia",      lat:20,  lng:78,   sectors:["BPO / Outsourcing","Data Entry","Customer Support","KPO"],
+    yearly:{2025:{risk:78,displaced:1.8,newRoles:0.2,automation:35},2026:{risk:84,displaced:2.6,newRoles:0.4,automation:51},2027:{risk:88,displaced:3.3,newRoles:0.6,automation:64},2028:{risk:91,displaced:3.9,newRoles:0.9,automation:74},2029:{risk:93,displaced:4.4,newRoles:1.3,automation:81}}},
+  "southeast-asia": { name:"SE Asia",         lat:10,  lng:108,  sectors:["Shared Services","Logistics Admin","Finance Ops","Retail"],
+    yearly:{2025:{risk:52,displaced:0.4,newRoles:0.1,automation:25},2026:{risk:61,displaced:0.7,newRoles:0.2,automation:37},2027:{risk:69,displaced:1.0,newRoles:0.3,automation:49},2028:{risk:75,displaced:1.3,newRoles:0.5,automation:58},2029:{risk:80,displaced:1.6,newRoles:0.7,automation:66}}},
+  "east-asia":      { name:"East Asia",       lat:35,  lng:118,  sectors:["Mfg. Admin","Finance","Retail Ops","Gov. Services"],
+    yearly:{2025:{risk:65,displaced:1.1,newRoles:0.3,automation:42},2026:{risk:72,displaced:1.5,newRoles:0.5,automation:54},2027:{risk:78,displaced:1.9,newRoles:0.7,automation:65},2028:{risk:83,displaced:2.3,newRoles:0.9,automation:73},2029:{risk:87,displaced:2.6,newRoles:1.2,automation:79}}},
+  "latam":          { name:"Latin America",   lat:-15, lng:-60,  sectors:["Banking","Telecom","Gov. Admin","Insurance"],
+    yearly:{2025:{risk:34,displaced:0.2,newRoles:0.1,automation:18},2026:{risk:42,displaced:0.4,newRoles:0.1,automation:27},2027:{risk:51,displaced:0.6,newRoles:0.2,automation:37},2028:{risk:60,displaced:0.9,newRoles:0.3,automation:47},2029:{risk:67,displaced:1.2,newRoles:0.4,automation:55}}},
+  "middle-east":    { name:"Middle East",     lat:25,  lng:45,   sectors:["Banking","Oil & Gas Admin","Government","Retail"],
+    yearly:{2025:{risk:44,displaced:0.15,newRoles:0.05,automation:22},2026:{risk:53,displaced:0.25,newRoles:0.08,automation:33},2027:{risk:61,displaced:0.35,newRoles:0.12,automation:44},2028:{risk:68,displaced:0.45,newRoles:0.18,automation:53},2029:{risk:74,displaced:0.55,newRoles:0.25,automation:61}}},
+  "africa":         { name:"Africa",          lat:5,   lng:20,   sectors:["Banking","Telecom","Mobile Money","Gov. Services"],
+    yearly:{2025:{risk:18,displaced:0.05,newRoles:0.02,automation:10},2026:{risk:24,displaced:0.09,newRoles:0.04,automation:16},2027:{risk:31,displaced:0.14,newRoles:0.06,automation:23},2028:{risk:40,displaced:0.21,newRoles:0.09,automation:32},2029:{risk:49,displaced:0.3,newRoles:0.13,automation:41}}},
+  "oceania":        { name:"Oceania",         lat:-25, lng:135,  sectors:["Finance","Insurance","Healthcare","Gov. Services"],
+    yearly:{2025:{risk:60,displaced:0.1,newRoles:0.03,automation:40},2026:{risk:69,displaced:0.14,newRoles:0.05,automation:52},2027:{risk:76,displaced:0.17,newRoles:0.07,automation:62},2028:{risk:82,displaced:0.20,newRoles:0.09,automation:71},2029:{risk:86,displaced:0.23,newRoles:0.12,automation:78}}}
+};
+
+const INDUSTRIES_LOSING = [
+  {name:"Data Entry & Processing",   icon:"📋", change:-42, sub:"Clerical, validation, reconciliation"},
+  {name:"Claims Processing",         icon:"📄", change:-38, sub:"Insurance, healthcare, finance"},
+  {name:"Customer Back-Office",      icon:"📞", change:-35, sub:"Account updates, billing"},
+  {name:"Accounts Payable/Rec.",     icon:"💳", change:-33, sub:"Invoicing, payment processing"},
+  {name:"Payroll Administration",    icon:"💰", change:-28, sub:"Salary calc., compliance"},
+  {name:"Document Management",       icon:"📂", change:-26, sub:"Filing, indexing, retrieval"},
+  {name:"Basic Compliance Ops",      icon:"⚖️", change:-24, sub:"Rule-based audit & reporting"},
+  {name:"HR Administration",         icon:"👥", change:-21, sub:"Onboarding, scheduling, benefits"},
+  {name:"IT Helpdesk Tier 1",        icon:"🖥️", change:-19, sub:"Password resets, ticket routing"},
+  {name:"Supply Chain Admin",        icon:"📦", change:-17, sub:"Order tracking, vendor comms"},
+];
+const INDUSTRIES_GAINING = [
+  {name:"AI Model Training & QA",    icon:"🤖", change:+68, sub:"Data labeling, RLHF, evaluation"},
+  {name:"AI Governance & Ethics",    icon:"🛡️", change:+54, sub:"Compliance, auditing, oversight"},
+  {name:"Prompt Engineering",        icon:"✍️", change:+47, sub:"LLM workflow design & optimization"},
+  {name:"AI Integration Consulting", icon:"🔗", change:+44, sub:"Enterprise AI deployment"},
+  {name:"Process Automation Mgmt",   icon:"⚙️", change:+38, sub:"RPA & AI workflow supervision"},
+  {name:"Data Strategy & Analytics", icon:"📊", change:+35, sub:"FP&A, BI, advanced analytics"},
+  {name:"AI Customer Experience",    icon:"💬", change:+29, sub:"Conversational AI design"},
+  {name:"Cybersecurity (AI-native)", icon:"🔒", change:+26, sub:"AI-driven threat detection"},
+  {name:"Digital Transformation",    icon:"🚀", change:+22, sub:"Change mgmt., upskilling"},
+  {name:"Complex Case Management",   icon:"🧩", change:+18, sub:"Exception handling, judgment roles"},
+];
+
+// ─── HELPERS ─────────────────────────────────────────────────
+function riskColor(r){
+  if(r>=85) return {hex:"#ff1a33",rgb:[1,0.1,0.2]};
+  if(r>=70) return {hex:"#ff6600",rgb:[1,0.4,0]};
+  if(r>=55) return {hex:"#ffaa00",rgb:[1,0.67,0]};
+  if(r>=40) return {hex:"#ddc200",rgb:[0.87,0.76,0]};
+  return      {hex:"#22cc55",rgb:[0.13,0.8,0.33]};
+}
+function riskLabel(r){
+  if(r>=85) return "Critical"; if(r>=70) return "Severe";
+  if(r>=55) return "High"; if(r>=40) return "Moderate"; return "Emerging";
+}
+function latLngToVec3(lat, lng, r){
+  const phi = (90-lat)*Math.PI/180;
+  const theta = (lng+180)*Math.PI/180;
+  return new THREE.Vector3(
+    -r*Math.sin(phi)*Math.cos(theta),
+     r*Math.cos(phi),
+     r*Math.sin(phi)*Math.sin(theta)
+  );
+}
+
+// ─── STATE ───────────────────────────────────────────────────
+let currentYear = 2025, selectedId = null, hoveredId = null;
+let playing = false, playTimer = null;
+let isDragging = false, prevMouse = {x:0,y:0};
+let autoRotate = true;
+const GLOBE_RADIUS = 1.0;
+
+// ─── THREE.JS SETUP ──────────────────────────────────────────
+const wrap = document.getElementById('globe-wrap');
+const container = document.getElementById('globe-canvas-container');
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled = false;
+container.insertBefore(renderer.domElement, container.firstChild);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 1000);
+camera.position.set(0, 0, 7.2);
+
+// Resize — fixed 380x380
+function onResize(){
+  renderer.setSize(380, 380);
+  camera.aspect = 1;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+setTimeout(onResize, 60);
+
+// ─── STARFIELD ───────────────────────────────────────────────
+(function(){
+  const geo = new THREE.BufferGeometry();
+  const verts = [];
+  for(let i=0;i<3000;i++){
+    const v = new THREE.Vector3((Math.random()-0.5)*200,(Math.random()-0.5)*200,(Math.random()-0.5)*200);
+    verts.push(v.x,v.y,v.z);
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts,3));
+  const mat = new THREE.PointsMaterial({color:0xccddff, size:0.18, transparent:true, opacity:0.7});
+  scene.add(new THREE.Points(geo,mat));
+})();
+
+// ─── PROCEDURAL EARTH TEXTURE ────────────────────────────────
+// Generates a photorealistic Earth texture entirely in-browser.
+// Based on real continent shapes, ocean depth gradients, polar ice,
+// and atmospheric haze — no external URLs needed.
+
+function makeEarthTexture(W, H) {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  // ── 1. OCEAN BASE — deep blue with depth variation ──
+  for (let y = 0; y < H; y++) {
+    const lat = 90 - (y / H) * 180;
+    const deep = 0.12 + 0.08 * Math.abs(lat) / 90;
+    const grd = ctx.createLinearGradient(0, 0, W, 0);
+    grd.addColorStop(0,   `rgb(${Math.round(10+deep*20)},${Math.round(40+deep*60)},${Math.round(110+deep*80)})`);
+    grd.addColorStop(0.5, `rgb(${Math.round(8+deep*18)},${Math.round(50+deep*55)},${Math.round(130+deep*70)})`);
+    grd.addColorStop(1,   `rgb(${Math.round(10+deep*20)},${Math.round(40+deep*60)},${Math.round(110+deep*80)})`);
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // ── 2. CONTINENT SHAPES (equirectangular coords) ──
+  // Each shape: array of [lon(-180..180), lat(-90..90)] outline points
+  // Coordinates carefully matched to real geography
+
+  function ll(lon, lat) {
+    return [ ((lon + 180) / 360) * W, ((90 - lat) / 180) * H ];
+  }
+  function poly(pts, fill, stroke) {
+    ctx.beginPath();
+    pts.forEach(([x,y], i) => i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y));
+    ctx.closePath();
+    if (fill)   { ctx.fillStyle   = fill;   ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+  }
+
+  // Land base color helper — varies by latitude (tropical=green, temperate=yellow-green, cold=grey-green)
+  function landColor(lat) {
+    const a = Math.abs(lat);
+    if (a > 60) return '#b8c4a8';   // tundra / boreal
+    if (a > 40) return '#8fa870';   // temperate
+    if (a > 20) return '#7a9e52';   // subtropical
+    return '#6b9e42';               // tropical
+  }
+
+  // ── NORTH AMERICA ──
+  const NA = [ll(-168,72),ll(-140,70),ll(-120,70),ll(-96,74),ll(-80,73),ll(-63,64),ll(-52,47),ll(-53,47),ll(-56,47),ll(-60,46),ll(-65,44),ll(-68,44),ll(-70,42),ll(-72,41),ll(-75,35),ll(-80,32),ll(-81,25),ll(-87,20),ll(-90,16),ll(-83,10),ll(-77,8),ll(-77,8),ll(-78,14),ll(-83,18),ll(-88,16),ll(-90,20),ll(-95,19),ll(-88,18),ll(-86,21),ll(-90,18),ll(-94,16),ll(-92,18),ll(-88,16),ll(-86,23),ll(-80,25),ll(-80,30),ll(-82,29),ll(-87,30),ll(-90,29),ll(-97,26),ll(-97,22),ll(-105,20),ll(-106,23),ll(-110,24),ll(-109,23),ll(-105,21),ll(-96,16),ll(-90,16),ll(-84,10),ll(-82,8),ll(-77,8),ll(-76,9),ll(-75,10),ll(-77,8),ll(-77,8),ll(-79,9),ll(-80,8),ll(-77,8),ll(-76,8),ll(-75,9),ll(-77,8),ll(-77,8),ll(-77,9),ll(-79,9),ll(-77,8),ll(-77,8),ll(-77,8),ll(-79,9),ll(-77,8),ll(-77,8),ll(-82,10),ll(-83,10),ll(-87,15),ll(-89,16),ll(-90,16),ll(-88,18),ll(-86,21),ll(-88,22),ll(-90,21),ll(-90,19),ll(-96,19),ll(-98,19),ll(-97,20),ll(-105,21),ll(-109,23),ll(-112,27),ll(-110,30),ll(-114,32),ll(-118,33),ll(-122,37),ll(-124,37),ll(-124,41),ll(-124,46),ll(-124,49),ll(-123,50),ll(-130,55),ll(-136,58),ll(-140,60),ll(-148,62),ll(-152,60),ll(-158,58),ll(-163,60),ll(-168,63),ll(-168,72)];
+  poly(NA, landColor(40), '#4a7c3f');
+
+  // ── GREENLAND ──
+  const GR = [ll(-50,83),ll(-32,82),ll(-18,76),ll(-17,68),ll(-21,65),ll(-26,63),ll(-35,64),ll(-44,59),ll(-46,60),ll(-48,63),ll(-53,67),ll(-54,69),ll(-55,72),ll(-52,76),ll(-44,78),ll(-40,81),ll(-50,83)];
+  poly(GR, '#d0dcc8', '#b0bcaa');
+
+  // ── SOUTH AMERICA ──
+  const SA = [ll(-73,13),ll(-63,11),ll(-60,8),ll(-60,5),ll(-52,4),ll(-51,5),ll(-50,2),ll(-50,-1),ll(-48,-2),ll(-44,-3),ll(-37,-5),ll(-35,-6),ll(-35,-9),ll(-38,-13),ll(-38,-17),ll(-40,-21),ll(-44,-24),ll(-46,-24),ll(-49,-26),ll(-48,-28),ll(-50,-29),ll(-52,-33),ll(-53,-34),ll(-58,-34),ll(-58,-38),ll(-60,-38),ll(-64,-42),ll(-65,-46),ll(-65,-49),ll(-66,-52),ll(-68,-54),ll(-68,-55),ll(-65,-56),ll(-63,-55),ll(-70,-55),ll(-72,-52),ll(-72,-47),ll(-72,-42),ll(-70,-36),ll(-72,-30),ll(-71,-26),ll(-70,-20),ll(-75,-14),ll(-77,-10),ll(-80,-3),ll(-80,0),ll(-78,2),ll(-77,4),ll(-75,8),ll(-73,11),ll(-73,13)];
+  poly(SA, landColor(-15), '#4a7c3f');
+
+  // ── EUROPE ──
+  const EU = [ll(-9,36),ll(-9,39),ll(-9,43),ll(-8,44),ll(-2,44),ll(0,46),ll(3,44),ll(5,46),ll(8,48),ll(10,55),ll(10,58),ll(15,58),ll(18,60),ll(20,64),ll(25,65),ll(28,71),ll(30,70),ll(32,65),ll(30,60),ll(28,56),ll(22,56),ll(18,55),ll(14,54),ll(10,58),ll(5,57),ll(0,51),ll(2,51),ll(2,49),ll(5,48),ll(8,47),ll(10,47),ll(15,47),ll(18,45),ll(14,44),ll(14,41),ll(16,38),ll(15,37),ll(12,38),ll(10,39),ll(9,40),ll(8,39),ll(12,36),ll(15,36),ll(15,37),ll(18,39),ll(20,39),ll(22,37),ll(24,36),ll(25,37),ll(26,41),ll(28,41),ll(29,41),ll(32,42),ll(34,36),ll(32,36),ll(28,37),ll(26,36),ll(28,38),ll(30,40),ll(28,42),ll(24,38),ll(20,38),ll(20,37),ll(19,38),ll(18,38),ll(15,40),ll(14,38),ll(12,38),ll(10,38),ll(9,41),ll(8,44),ll(3,43),ll(-2,44),ll(-4,44),ll(-5,36),ll(-6,37),ll(-9,38),ll(-9,36)];
+  poly(EU, landColor(48), '#4a7c3f');
+
+  // ── SCANDINAVIA ──
+  const SC = [ll(5,58),ll(5,57),ll(8,56),ll(10,58),ll(12,58),ll(14,56),ll(16,56),ll(18,58),ll(20,60),ll(22,64),ll(24,68),ll(28,71),ll(26,70),ll(22,70),ll(18,69),ll(16,68),ll(14,65),ll(12,63),ll(10,63),ll(8,62),ll(5,62),ll(5,58)];
+  poly(SC, landColor(62), '#4a7c3f');
+
+  // ── AFRICA ──
+  const AF = [ll(-17,15),ll(-16,13),ll(-15,11),ll(-14,10),ll(-13,9),ll(-11,8),ll(-8,5),ll(-5,5),ll(-2,5),ll(0,5),ll(3,5),ll(5,5),ll(8,5),ll(9,4),ll(10,2),ll(9,2),ll(8,2),ll(7,2),ll(5,2),ll(2,4),ll(2,5),ll(3,5),ll(5,5),ll(9,5),ll(14,4),ll(15,3),ll(18,3),ll(22,4),ll(25,4),ll(28,3),ll(30,3),ll(34,2),ll(36,0),ll(38,-1),ll(40,-3),ll(42,-12),ll(41,-22),ll(37,-24),ll(35,-25),ll(33,-27),ll(31,-30),ll(29,-32),ll(27,-34),ll(18,-35),ll(17,-30),ll(16,-28),ll(12,-24),ll(10,-18),ll(11,-15),ll(12,-10),ll(11,-5),ll(9,-3),ll(8,-3),ll(5,-5),ll(0,-2),ll(-2,-2),ll(-5,2),ll(-5,5),ll(-8,5),ll(-11,8),ll(-14,10),ll(-17,15)];
+  poly(AF, landColor(10), '#4a7c3f');
+
+  // ── MIDDLE EAST / ARABIA ──
+  const ME = [ll(34,36),ll(36,37),ll(38,37),ll(40,38),ll(42,38),ll(44,36),ll(46,30),ll(50,26),ll(55,22),ll(58,20),ll(60,22),ll(58,23),ll(56,25),ll(57,26),ll(56,28),ll(52,30),ll(50,30),ll(48,28),ll(44,22),ll(44,19),ll(42,13),ll(44,12),ll(46,12),ll(48,14),ll(50,16),ll(52,18),ll(54,18),ll(56,20),ll(58,22),ll(60,22),ll(58,24),ll(56,26),ll(57,28),ll(56,30),ll(52,32),ll(48,30),ll(44,28),ll(44,24),ll(40,21),ll(38,16),ll(37,14),ll(36,16),ll(34,28),ll(32,30),ll(30,29),ll(30,32),ll(32,32),ll(34,32),ll(36,33),ll(36,35),ll(34,36)];
+  poly(ME, '#c4a87a', '#a08860');
+
+  // ── ASIA ──
+  const AS = [ll(26,41),ll(28,42),ll(32,42),ll(36,37),ll(36,33),ll(34,32),ll(38,30),ll(42,38),ll(46,38),ll(48,42),ll(52,44),ll(54,42),ll(58,44),ll(60,44),ll(64,46),ll(68,48),ll(72,52),ll(76,54),ll(80,56),ll(84,54),ll(88,50),ll(90,50),ll(92,52),ll(96,54),ll(100,54),ll(104,52),ll(108,52),ll(110,50),ll(114,48),ll(118,48),ll(122,48),ll(126,48),ll(128,50),ll(130,48),ll(132,44),ll(130,42),ll(128,42),ll(126,40),ll(122,38),ll(120,35),ll(122,30),ll(120,26),ll(118,24),ll(114,22),ll(110,20),ll(108,16),ll(104,12),ll(100,5),ll(104,1),ll(108,-2),ll(110,-5),ll(104,-5),ll(100,-5),ll(96,-4),ll(100,-6),ll(106,-8),ll(110,-8),ll(115,-8),ll(116,-8),ll(118,-8),ll(114,-8),ll(110,-8),ll(108,-8),ll(106,-6),ll(104,-5),ll(100,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(96,-4),ll(100,5),ll(98,6),ll(95,10),ll(92,22),ll(88,22),ll(80,10),ll(76,8),ll(72,20),ll(68,22),ll(64,22),ll(60,22),ll(58,22),ll(56,24),ll(52,24),ll(50,26),ll(48,28),ll(44,22),ll(40,20),ll(36,22),ll(36,28),ll(34,30),ll(30,32),ll(26,36),ll(24,38),ll(26,40),ll(26,41)];
+  poly(AS, landColor(35), '#4a7c3f');
+
+  // ── INDIAN SUBCONTINENT ──
+  const IN = [ll(72,22),ll(76,20),ll(80,14),ll(80,10),ll(78,8),ll(76,8),ll(74,14),ll(70,20),ll(68,22),ll(70,24),ll(72,22)];
+  poly(IN, landColor(20), '#4a7c3f');
+
+  // ── SOUTHEAST ASIA (mainland) ──
+  const SEA = [ll(100,5),ll(104,1),ll(106,-2),ll(108,-4),ll(110,-2),ll(108,2),ll(104,4),ll(100,5)];
+  poly(SEA, landColor(5), '#4a7c3f');
+
+  // ── JAPAN ──
+  const JP = [ll(130,31),ll(131,32),ll(130,34),ll(132,35),ll(134,36),ll(136,36),ll(138,38),ll(140,40),ll(141,42),ll(142,44),ll(142,44),ll(140,42),ll(138,40),ll(136,38),ll(134,36),ll(132,34),ll(130,32),ll(130,31)];
+  poly(JP, landColor(36), null);
+
+  // ── AUSTRALIA ──
+  const AU = [ll(114,-22),ll(116,-20),ll(122,-18),ll(126,-14),ll(130,-12),ll(136,-12),ll(140,-14),ll(142,-18),ll(148,-20),ll(152,-24),ll(154,-26),ll(152,-30),ll(150,-34),ll(148,-37),ll(146,-38),ll(142,-38),ll(138,-36),ll(136,-36),ll(134,-32),ll(132,-32),ll(128,-34),ll(122,-34),ll(118,-34),ll(114,-34),ll(114,-30),ll(114,-26),ll(114,-22)];
+  poly(AU, '#c8a85a', '#a08840');
+
+  // ── NEW ZEALAND ──
+  poly([ll(172,-34),ll(174,-36),ll(176,-38),ll(174,-40),ll(172,-40),ll(170,-38),ll(172,-36),ll(172,-34)], landColor(-38), null);
+  poly([ll(168,-44),ll(170,-46),ll(172,-47),ll(172,-44),ll(170,-43),ll(168,-44)], landColor(-44), null);
+
+  // ── NORTH POLAR ICE CAP ──
+  const arcticY = ((90 - 66) / 180) * H;
+  const icGrd = ctx.createLinearGradient(0, 0, 0, arcticY);
+  icGrd.addColorStop(0,   'rgba(240,246,255,1)');
+  icGrd.addColorStop(0.6, 'rgba(220,236,248,0.95)');
+  icGrd.addColorStop(1,   'rgba(200,225,242,0)');
+  ctx.fillStyle = icGrd;
+  ctx.fillRect(0, 0, W, arcticY);
+
+  // ── SOUTH POLAR ICE CAP (Antarctica) ──
+  const antY = ((90 - (-62)) / 180) * H;
+  const antGrd = ctx.createLinearGradient(0, antY, 0, H);
+  antGrd.addColorStop(0,   'rgba(230,240,250,0)');
+  antGrd.addColorStop(0.4, 'rgba(235,243,252,0.95)');
+  antGrd.addColorStop(1,   'rgba(245,250,255,1)');
+  ctx.fillStyle = antGrd;
+  ctx.fillRect(0, antY, W, H - antY);
+
+  // ── 3. SUBTLE OCEAN SHIMMER / DEPTH LINES ──
+  ctx.globalAlpha = 0.04;
+  for (let i = 0; i < 12; i++) {
+    const y0 = Math.random() * H;
+    ctx.strokeStyle = '#7ab8e8';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0 + (Math.random()-0.5)*30);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // ── 4. ATMOSPHERIC HAZE AT POLES ──
+  const haze1 = ctx.createLinearGradient(0,0,0,H*0.12);
+  haze1.addColorStop(0,'rgba(180,210,240,0.3)'); haze1.addColorStop(1,'rgba(180,210,240,0)');
+  ctx.fillStyle=haze1; ctx.fillRect(0,0,W,H*0.12);
+  const haze2 = ctx.createLinearGradient(0,H*0.88,0,H);
+  haze2.addColorStop(0,'rgba(180,210,240,0)'); haze2.addColorStop(1,'rgba(180,210,240,0.3)');
+  ctx.fillStyle=haze2; ctx.fillRect(0,H*0.88,W,H*0.12);
+
+  return c;
+}
+
+function makeCloudTexture(W, H) {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'black'; ctx.fillRect(0,0,W,H);
+
+  // Procedural cloud bands
+  function noise(x, y, scale) {
+    return (Math.sin(x*scale + 1.3)*Math.cos(y*scale*0.8 + 0.7) +
+            Math.sin(x*scale*1.7 + 2.1)*Math.cos(y*scale*1.3 + 3.1) +
+            Math.sin(x*scale*0.9 + 4.2)*Math.cos(y*scale*2.1 + 1.5)) / 3;
+  }
+
+  const imgData = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const nx = x/W, ny = y/H;
+      const lat = (0.5 - ny) * 180;
+      // Cloud bands concentrated at mid-latitudes and tropics
+      const bandFactor = 0.4 + 0.6 * (Math.cos(lat * Math.PI / 25) * 0.5 + 0.5);
+      const n = noise(nx, ny, 8);
+      const n2 = noise(nx*1.4+0.5, ny*1.4+0.3, 5);
+      let v = ((n + n2*0.5) * 0.5 + 0.5) * bandFactor;
+      v = Math.max(0, Math.min(1, (v - 0.45) * 3.5));
+      const idx = (y*W + x)*4;
+      imgData.data[idx] = imgData.data[idx+1] = imgData.data[idx+2] = Math.round(v*255);
+      imgData.data[idx+3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return c;
+}
+
+// Generate textures
+const earthTexCanvas  = makeEarthTexture(2048, 1024);
+const cloudTexCanvas  = makeCloudTexture(1024, 512);
+const earthTex  = new THREE.CanvasTexture(earthTexCanvas);
+const cloudTex  = new THREE.CanvasTexture(cloudTexCanvas);
+earthTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+// ─── EARTH SPHERE ────────────────────────────────────────────
+const earthGeo = new THREE.SphereGeometry(GLOBE_RADIUS, 96, 96);
+const earthMat = new THREE.MeshPhongMaterial({
+  map: earthTex,
+  shininess: 22,
+  specular: new THREE.Color(0x1a4466),
+});
+const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+
+// Clouds layer
+const cloudGeo = new THREE.SphereGeometry(GLOBE_RADIUS*1.008, 64, 64);
+const cloudMat = new THREE.MeshPhongMaterial({
+  map: cloudTex, alphaMap: cloudTex,
+  transparent:true, opacity:0.55, depthWrite:false,
+  color: new THREE.Color(1,1,1),
+});
+const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+
+// ─── ATMOSPHERE GLOW ─────────────────────────────────────────
+const atmGeo = new THREE.SphereGeometry(GLOBE_RADIUS*1.08, 64, 64);
+const atmMat = new THREE.MeshPhongMaterial({
+  color: 0x4499ff, transparent:true, opacity:0.10,
+  side: THREE.FrontSide, depthWrite:false,
+});
+scene.add(new THREE.Mesh(atmGeo, atmMat));
+// Outer haze ring
+const outerAtmGeo = new THREE.SphereGeometry(GLOBE_RADIUS*1.15, 64, 64);
+const outerAtmMat = new THREE.MeshPhongMaterial({
+  color: 0x3377cc, transparent:true, opacity:0.04,
+  side: THREE.FrontSide, depthWrite:false,
+});
+scene.add(new THREE.Mesh(outerAtmGeo, outerAtmMat));
+
+// ─── LIGHTING ────────────────────────────────────────────────
+const sunLight = new THREE.DirectionalLight(0xfff5e8, 1.3);
+sunLight.position.set(5, 3, 5);
+scene.add(sunLight);
+const ambientLight = new THREE.AmbientLight(0x334466, 0.55);
+scene.add(ambientLight);
+const fillLight = new THREE.DirectionalLight(0x8899cc, 0.15);
+fillLight.position.set(-5, -2, -3);
+scene.add(fillLight);
+
+// ─── ROTATION GROUP ──────────────────────────────────────────
+// Wrap earth + clouds in a group for easy rotation
+const globeGroup = new THREE.Group();
+globeGroup.add(earthMesh);
+globeGroup.add(cloudMesh);
+scene.add(globeGroup);
+
+// ─── MARKER SPIKES ───────────────────────────────────────────
+const spikesGroup = new THREE.Group();
+scene.add(spikesGroup);
+
+// Store spike meshes for raycasting
+const spikeObjects = {}; // id -> {base, shaft, cap}
+
+function buildSpikes(){
+  // Clear old
+  while(spikesGroup.children.length) spikesGroup.remove(spikesGroup.children[0]);
+  Object.keys(spikeObjects).forEach(k=>delete spikeObjects[k]);
+
+  Object.entries(REGIONS).forEach(([id, region]) => {
+    const yr = region.yearly[currentYear];
+    const col = riskColor(yr.risk);
+    const color = new THREE.Color(...col.rgb);
+
+    const origin = latLngToVec3(region.lat, region.lng, GLOBE_RADIUS);
+    const dir = origin.clone().normalize();
+    const spikeH = 0.04 + (yr.risk/100)*0.55;
+
+    // Base glow disc
+    const discGeo = new THREE.CircleGeometry(0.06 + (yr.risk/100)*0.06, 16);
+    const discMat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.45, depthWrite:false, side:THREE.DoubleSide});
+    const disc = new THREE.Mesh(discGeo, discMat);
+    disc.position.copy(origin.clone().multiplyScalar(1.001));
+    disc.lookAt(origin.clone().multiplyScalar(3));
+    spikesGroup.add(disc);
+
+    // Shaft — CylinderGeometry(topR, botR, height, segs)
+    const shaftGeo = new THREE.CylinderGeometry(0.007, 0.018, spikeH, 8);
+    const shaftMat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.9});
+    const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+
+    // Position shaft: start at surface, extend outward
+    const mid = origin.clone().add(dir.clone().multiplyScalar(spikeH/2));
+    shaft.position.copy(mid);
+    shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+    spikesGroup.add(shaft);
+
+    // Cap sphere
+    const capGeo = new THREE.SphereGeometry(0.022 + (yr.risk/100)*0.012, 12, 12);
+    const capMat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:1.0});
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.copy(origin.clone().add(dir.clone().multiplyScalar(spikeH)));
+    spikesGroup.add(cap);
+
+    // White tip
+    const tipGeo = new THREE.SphereGeometry(0.008, 8, 8);
+    const tipMat = new THREE.MeshBasicMaterial({color:0xffffff});
+    const tip = new THREE.Mesh(tipGeo, tipMat);
+    tip.position.copy(origin.clone().add(dir.clone().multiplyScalar(spikeH + 0.013)));
+    spikesGroup.add(tip);
+
+    // Store for raycasting (use cap as proxy)
+    cap.userData = {id, region, isMarker:true};
+    shaft.userData = {id, region, isMarker:true};
+    spikeObjects[id] = {disc, shaft, cap, tip, origin, dir, spikeH};
+  });
+}
+buildSpikes();
+
+// ─── SPRITE LABELS (HTML overlay) ────────────────────────────
+const labelCanvas = document.createElement('canvas');
+labelCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;width:380px;height:380px;';
+container.appendChild(labelCanvas);
+const lctx = labelCanvas.getContext('2d');
+
+function resizeLabel(){
+  const dpr = window.devicePixelRatio || 1;
+  labelCanvas.width = 380 * dpr;
+  labelCanvas.height = 380 * dpr;
+}
+window.addEventListener('resize', resizeLabel);
+setTimeout(resizeLabel, 80);
+
+function drawLabels(){
+  const W = labelCanvas.width, H = labelCanvas.height;
+  lctx.clearRect(0,0,W,H);
+
+  Object.entries(REGIONS).forEach(([id, region]) => {
+    const yr = region.yearly[currentYear];
+    const col = riskColor(yr.risk);
+    const sp = spikeObjects[id];
+    if(!sp) return;
+
+    // Project cap tip world pos to screen
+    const tipWorld = sp.cap.position.clone();
+    // Rotate by globeGroup rotation
+    tipWorld.applyEuler(globeGroup.rotation);
+    // spikesGroup has same rotation
+    const tipScreen = tipWorld.clone().project(camera);
+
+    // Check if behind
+    const ndc = sp.origin.clone().applyEuler(globeGroup.rotation).project(camera);
+    if(ndc.z > 1) return;
+
+    const sx = (tipScreen.x*0.5+0.5)*W;
+    const sy = (-tipScreen.y*0.5+0.5)*H;
+    const isActive = hoveredId===id || selectedId===id;
+
+    // Glow behind text
+    const dpr = devicePixelRatio;
+    const fs = Math.round(12*dpr);
+    lctx.font = `700 ${fs}px DM Sans,sans-serif`;
+    lctx.textAlign = 'center';
+    lctx.textBaseline = 'bottom';
+
+    // Shadow
+    lctx.shadowColor = 'rgba(0,0,0,0.6)';
+    lctx.shadowBlur = 6*dpr;
+
+    // Risk %
+    lctx.fillStyle = col.hex;
+    lctx.fillText(`${yr.risk}%`, sx, sy - 18*dpr);
+
+    if(isActive){
+      const fsB = Math.round(13*dpr);
+      lctx.font = `600 ${fsB}px DM Sans,sans-serif`;
+      lctx.fillStyle = '#ffffff';
+      lctx.fillText(region.name, sx, sy - 32*dpr);
+
+      lctx.font = `500 ${Math.round(10*dpr)}px DM Sans,sans-serif`;
+      lctx.fillStyle = col.hex;
+      lctx.fillText(`−${yr.displaced}M jobs`, sx, sy - 4*dpr);
+    }
+    lctx.shadowBlur = 0;
+  });
+}
+
+// ─── INTERACTION ─────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points = {threshold:0.1};
+const mouse2D = new THREE.Vector2();
+
+function getMarkerAtMouse(event){
+  const rect = container.getBoundingClientRect();
+  mouse2D.x = ((event.clientX-rect.left)/rect.width)*2-1;
+  mouse2D.y = -((event.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse2D, camera);
+  const allMarkers = [];
+  Object.values(spikeObjects).forEach(sp=>{allMarkers.push(sp.cap); allMarkers.push(sp.shaft);});
+  const hits = raycaster.intersectObjects(allMarkers);
+  if(hits.length>0 && hits[0].object.userData.isMarker) return hits[0].object.userData.id;
+  return null;
+}
+
+renderer.domElement.addEventListener('mousedown', e => {
+  isDragging = true; autoRotate = false;
+  prevMouse = {x:e.clientX, y:e.clientY};
+});
+window.addEventListener('mousemove', e => {
+  if(isDragging){
+    const dx = (e.clientX-prevMouse.x)*0.007;
+    const dy = (e.clientY-prevMouse.y)*0.007;
+    globeGroup.rotation.y += dx;
+    spikesGroup.rotation.y += dx;
+    globeGroup.rotation.x += dy;
+    spikesGroup.rotation.x += dy;
+    globeGroup.rotation.x = Math.max(-1.3, Math.min(1.3, globeGroup.rotation.x));
+    spikesGroup.rotation.x = globeGroup.rotation.x;
+    prevMouse = {x:e.clientX, y:e.clientY};
+  } else {
+    // Only do marker hit-testing when mouse is actually over the canvas
+    const cRect = container.getBoundingClientRect();
+    const overCanvas = e.clientX >= cRect.left && e.clientX <= cRect.right &&
+                       e.clientY >= cRect.top  && e.clientY <= cRect.bottom;
+    if(!overCanvas) {
+      if(hoveredId !== null){ hoveredId = null; renderRightPanel(); }
+      return;
+    }
+    const found = getMarkerAtMouse(e);
+    if(found !== hoveredId){
+      hoveredId = found;
+      renderer.domElement.style.cursor = found ? 'pointer' : 'grab';
+      if(found || selectedId) renderRightPanel();
+    }
+  }
+});
+window.addEventListener('mouseup', e => {
+  if(!isDragging) return;
+  const dx = Math.abs(e.clientX-prevMouse.x), dy = Math.abs(e.clientY-prevMouse.y);
+  isDragging = false;
+  if(dx<6 && dy<6){
+    const found = getMarkerAtMouse(e);
+    if(found){ selectedId = selectedId===found ? null : found; renderRightPanel(); }
+  }
+  setTimeout(()=>{ autoRotate=true; }, 3200);
+});
+
+// Touch
+renderer.domElement.addEventListener('touchstart', e=>{ e.preventDefault(); const t=e.touches[0]; isDragging=true; autoRotate=false; prevMouse={x:t.clientX,y:t.clientY}; },{passive:false});
+renderer.domElement.addEventListener('touchmove', e=>{ e.preventDefault(); const t=e.touches[0]; if(isDragging){const dx=(t.clientX-prevMouse.x)*0.007,dy=(t.clientY-prevMouse.y)*0.007; globeGroup.rotation.y+=dx; spikesGroup.rotation.y+=dx; globeGroup.rotation.x=Math.max(-1.3,Math.min(1.3,globeGroup.rotation.x+dy)); spikesGroup.rotation.x=globeGroup.rotation.x; prevMouse={x:t.clientX,y:t.clientY};} },{passive:false});
+renderer.domElement.addEventListener('touchend', e=>{ isDragging=false; setTimeout(()=>{autoRotate=true;},3200); },{passive:false});
+
+// ─── ANIMATE SPIKES (pulse) ───────────────────────────────────
+let frame = 0;
+function updateSpikePulse(){
+  Object.entries(REGIONS).forEach(([id, region])=>{
+    const sp = spikeObjects[id];
+    if(!sp) return;
+    const yr = region.yearly[currentYear];
+    const col = riskColor(yr.risk);
+    const pulse = (Math.sin(frame*0.04 + yr.risk*0.08)+1)/2;
+    const isActive = hoveredId===id || selectedId===id;
+    sp.disc.material.opacity = isActive ? 0.7 : 0.3 + pulse*0.2;
+    sp.cap.material.opacity = 0.85 + pulse*0.15;
+    const s = isActive ? 1.5 : 1;
+    sp.cap.scale.setScalar(s);
+    sp.tip.scale.setScalar(s);
+  });
+}
+
+// ─── RENDER LOOP ─────────────────────────────────────────────
+function animate(){
+  requestAnimationFrame(animate);
+  if(autoRotate && !isDragging){
+    globeGroup.rotation.y += 0.0018;
+    spikesGroup.rotation.y = globeGroup.rotation.y;
+  }
+  // Slow cloud rotation
+  cloudMesh.rotation.y += 0.00025;
+  updateSpikePulse();
+  renderer.render(scene, camera);
+  drawLabels();
+  frame++;
+}
+animate();
+
+// ─── UI ──────────────────────────────────────────────────────
+function setYear(y){
+  currentYear = y;
+  document.querySelectorAll('.yr-btn').forEach(b=>b.classList.toggle('active',parseInt(b.textContent)===y));
+  buildSpikes();
+  updateTopStats();
+  renderLeftPanel();
+  renderRightPanel();
+}
+
+function updateTopStats(){
+  const total = Object.values(REGIONS).reduce((s,r)=>s+r.yearly[currentYear].displaced,0);
+  const newR  = Object.values(REGIONS).reduce((s,r)=>s+r.yearly[currentYear].newRoles,0);
+  const avg   = Math.round(Object.values(REGIONS).reduce((s,r)=>s+r.yearly[currentYear].risk,0)/9);
+  document.getElementById('s-displaced').textContent = total.toFixed(1)+'M';
+  document.getElementById('s-new').textContent       = newR.toFixed(1)+'M';
+  document.getElementById('s-net').textContent       = '−'+(total-newR).toFixed(1)+'M';
+  document.getElementById('s-risk').textContent      = avg+'%';
+}
+
+function renderLeftPanel(){
+  const yF = {2025:1,2026:1.25,2027:1.6,2028:1.9,2029:2.2}[currentYear];
+
+  document.getElementById('losing-list').innerHTML = INDUSTRIES_LOSING.map(ind=>{
+    const val = Math.round(ind.change*yF);
+    const pct = Math.min(100,Math.abs(val)/65*100);
+    return `<div class="industry-row">
+      <div class="ind-icon" style="background:#fff0f0;">${ind.icon}</div>
+      <div class="ind-info">
+        <div class="ind-name">${ind.name}</div>
+        <div class="ind-sub">${ind.sub}</div>
+        <div class="ind-bar" style="width:${pct}%;background:#fc8181;"></div>
+      </div>
+      <div class="ind-change" style="color:#c53030;">${val}%</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('gaining-list').innerHTML = INDUSTRIES_GAINING.map(ind=>{
+    const val = Math.round(ind.change*yF);
+    const pct = Math.min(100,val/130*100);
+    return `<div class="industry-row">
+      <div class="ind-icon" style="background:#f0fff4;">${ind.icon}</div>
+      <div class="ind-info">
+        <div class="ind-name">${ind.name}</div>
+        <div class="ind-sub">${ind.sub}</div>
+        <div class="ind-bar" style="width:${pct}%;background:#68d391;"></div>
+      </div>
+      <div class="ind-change" style="color:#276749;">+${val}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRightPanel(){
+  const el = document.getElementById('right-panel-inner');
+  const activeId = selectedId || hoveredId;
+
+  if(activeId && REGIONS[activeId]){
+    const region = REGIONS[activeId], yr = region.yearly[currentYear];
+    const col = riskColor(yr.risk), net=(yr.displaced-yr.newRoles).toFixed(2);
+    const pillBg = {"Critical":"#fff0f0","Severe":"#fff4e6","High":"#fffbe6","Moderate":"#f0fff4","Emerging":"#f0faf4"}[riskLabel(yr.risk)]||"#f5f5f5";
+
+    const trajBars = [2025,2026,2027,2028,2029].map((y,i)=>{
+      const d=region.yearly[y], c=riskColor(d.risk), bh=Math.round((d.risk/100)*44), sel=y===currentYear;
+      return `<g onclick="setYear(${y})" style="cursor:pointer">
+        <rect x="${3+i*46}" y="${48-bh}" width="38" height="${bh}" fill="${c.hex}${sel?'30':'15'}" stroke="${c.hex}" stroke-width="${sel?1.5:0.5}" rx="2"/>
+        <text x="${22+i*46}" y="45" text-anchor="middle" fill="${sel?'#3b6ef5':'#8898aa'}" font-size="6" font-family="DM Sans" font-weight="${sel?700:400}">${y}</text>
+        <text x="${22+i*46}" y="${48-bh-3}" text-anchor="middle" fill="${c.hex}" font-size="6" font-family="DM Sans" font-weight="700">${d.risk}%</text>
+      </g>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#8898aa;margin-bottom:12px;">Region Intelligence · ${currentYear}</div>
+      <div class="region-name-big">${region.name}</div>
+      <div class="risk-pill" style="background:${pillBg};color:${col.hex};border:1px solid ${col.hex}50;">${riskLabel(yr.risk)} · ${yr.risk}% Risk</div>
+
+      <div class="bar-row" style="margin-bottom:4px;"><span>Displacement Risk</span><span style="color:${col.hex};font-weight:700;">${yr.risk}%</span></div>
+      <div class="bar-track" style="margin-bottom:13px;"><div class="bar-fill" style="width:${yr.risk}%;background:linear-gradient(90deg,#38a169,${col.hex});"></div></div>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Displaced</div><div class="stat-val" style="color:#e53e3e;">${yr.displaced}M</div></div>
+        <div class="stat-card"><div class="stat-label">New Roles</div><div class="stat-val" style="color:#276749;">${yr.newRoles}M</div></div>
+        <div class="stat-card"><div class="stat-label">Net Loss</div><div class="stat-val" style="color:#c05621;">−${net}M</div></div>
+        <div class="stat-card"><div class="stat-label">Automation</div><div class="stat-val" style="color:#3b6ef5;">${yr.automation}%</div></div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8898aa;margin-bottom:9px;">Most Affected Sectors</div>
+        ${region.sectors.map((s,i)=>{
+          const pct=Math.round(yr.risk*(1-i*0.11));
+          return `<div style="margin-bottom:7px;">
+            <div class="bar-row"><span>${s}</span><span style="color:${col.hex};font-weight:600;">${pct}%</span></div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col.hex};opacity:0.7;"></div></div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8898aa;margin-bottom:9px;">5-Year Trajectory</div>
+        <div class="traj-wrap"><svg style="width:100%;display:block;" viewBox="0 0 236 54">${trajBars}</svg></div>
+      </div>
+
+      <div style="background:#fffbeb;border:1px solid #f6e05e;border-radius:9px;padding:10px 12px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#b7791f;margin-bottom:5px;">Automation Level ${currentYear}</div>
+        <div class="bar-track" style="background:#fef3c7;margin-bottom:5px;"><div class="bar-fill" style="width:${yr.automation}%;background:linear-gradient(90deg,#f6d860,#e6a000);"></div></div>
+        <div style="font-size:10px;color:#92400e;font-weight:500;">${yr.automation}% of tasks are automatable this year</div>
+      </div>`;
+  } else {
+    // Country-level risk data per region
+    const COUNTRIES = {
+      "north-america": [
+        {name:"United States", flag:"🇺🇸", yearly:{2025:65,2026:74,2027:82,2028:87,2029:91}},
+        {name:"Canada",        flag:"🇨🇦", yearly:{2025:58,2026:66,2027:74,2028:80,2029:85}},
+        {name:"Mexico",        flag:"🇲🇽", yearly:{2025:42,2026:50,2027:58,2028:65,2029:72}},
+      ],
+      "europe": [
+        {name:"United Kingdom",flag:"🇬🇧", yearly:{2025:58,2026:67,2027:74,2028:80,2029:85}},
+        {name:"Germany",       flag:"🇩🇪", yearly:{2025:55,2026:63,2027:71,2028:77,2029:82}},
+        {name:"France",        flag:"🇫🇷", yearly:{2025:50,2026:58,2027:66,2028:72,2029:78}},
+        {name:"Netherlands",   flag:"🇳🇱", yearly:{2025:54,2026:63,2027:70,2028:76,2029:81}},
+        {name:"Poland",        flag:"🇵🇱", yearly:{2025:44,2026:52,2027:60,2028:67,2029:73}},
+        {name:"Spain",         flag:"🇪🇸", yearly:{2025:40,2026:48,2027:56,2028:63,2029:70}},
+        {name:"Italy",         flag:"🇮🇹", yearly:{2025:38,2026:46,2027:54,2028:61,2029:68}},
+      ],
+      "south-asia": [
+        {name:"India",         flag:"🇮🇳", yearly:{2025:82,2026:87,2027:91,2028:94,2029:96}},
+        {name:"Bangladesh",    flag:"🇧🇩", yearly:{2025:68,2026:74,2027:80,2028:85,2029:89}},
+        {name:"Pakistan",      flag:"🇵🇰", yearly:{2025:55,2026:62,2027:69,2028:75,2029:80}},
+        {name:"Sri Lanka",     flag:"🇱🇰", yearly:{2025:60,2026:68,2027:74,2028:80,2029:85}},
+      ],
+      "southeast-asia": [
+        {name:"Philippines",   flag:"🇵🇭", yearly:{2025:70,2026:78,2027:83,2028:87,2029:91}},
+        {name:"Malaysia",      flag:"🇲🇾", yearly:{2025:60,2026:68,2027:74,2028:80,2029:85}},
+        {name:"Indonesia",     flag:"🇮🇩", yearly:{2025:42,2026:52,2027:61,2028:68,2029:75}},
+        {name:"Vietnam",       flag:"🇻🇳", yearly:{2025:45,2026:54,2027:62,2028:69,2029:75}},
+        {name:"Singapore",     flag:"🇸🇬", yearly:{2025:68,2026:76,2027:82,2028:86,2029:89}},
+        {name:"Thailand",      flag:"🇹🇭", yearly:{2025:50,2026:59,2027:66,2028:73,2029:79}},
+      ],
+      "east-asia": [
+        {name:"China",         flag:"🇨🇳", yearly:{2025:66,2026:73,2027:79,2028:84,2029:88}},
+        {name:"Japan",         flag:"🇯🇵", yearly:{2025:72,2026:78,2027:83,2028:87,2029:90}},
+        {name:"South Korea",   flag:"🇰🇷", yearly:{2025:70,2026:77,2027:82,2028:86,2029:90}},
+        {name:"Taiwan",        flag:"🇹🇼", yearly:{2025:65,2026:72,2027:78,2028:83,2029:87}},
+      ],
+      "latam": [
+        {name:"Brazil",        flag:"🇧🇷", yearly:{2025:38,2026:46,2027:55,2028:63,2029:70}},
+        {name:"Mexico",        flag:"🇲🇽", yearly:{2025:42,2026:50,2027:58,2028:65,2029:72}},
+        {name:"Colombia",      flag:"🇨🇴", yearly:{2025:30,2026:38,2027:46,2028:54,2029:61}},
+        {name:"Argentina",     flag:"🇦🇷", yearly:{2025:32,2026:40,2027:49,2028:57,2029:64}},
+        {name:"Chile",         flag:"🇨🇱", yearly:{2025:35,2026:44,2027:52,2028:60,2029:67}},
+      ],
+      "middle-east": [
+        {name:"UAE",           flag:"🇦🇪", yearly:{2025:60,2026:68,2027:75,2028:81,2029:86}},
+        {name:"Saudi Arabia",  flag:"🇸🇦", yearly:{2025:50,2026:59,2027:67,2028:73,2029:79}},
+        {name:"Israel",        flag:"🇮🇱", yearly:{2025:62,2026:70,2027:76,2028:82,2029:86}},
+        {name:"Turkey",        flag:"🇹🇷", yearly:{2025:40,2026:49,2027:57,2028:64,2029:70}},
+        {name:"Egypt",         flag:"🇪🇬", yearly:{2025:28,2026:36,2027:44,2028:52,2029:59}},
+      ],
+      "africa": [
+        {name:"South Africa",  flag:"🇿🇦", yearly:{2025:35,2026:42,2027:50,2028:58,2029:65}},
+        {name:"Kenya",         flag:"🇰🇪", yearly:{2025:22,2026:30,2027:38,2028:46,2029:54}},
+        {name:"Nigeria",       flag:"🇳🇬", yearly:{2025:16,2026:22,2027:30,2028:38,2029:46}},
+        {name:"Egypt",         flag:"🇪🇬", yearly:{2025:28,2026:36,2027:44,2028:52,2029:59}},
+        {name:"Morocco",       flag:"🇲🇦", yearly:{2025:20,2026:27,2027:35,2028:43,2029:51}},
+      ],
+      "oceania": [
+        {name:"Australia",     flag:"🇦🇺", yearly:{2025:63,2026:72,2027:78,2028:83,2029:87}},
+        {name:"New Zealand",   flag:"🇳🇿", yearly:{2025:58,2026:66,2027:73,2028:79,2029:84}},
+      ],
+    };
+
+    const sorted = Object.entries(REGIONS).sort((a,b)=>b[1].yearly[currentYear].risk-a[1].yearly[currentYear].risk);
+
+    const rows = sorted.map(([id,r])=>{
+      const yr=r.yearly[currentYear], c=riskColor(yr.risk);
+      const countries = (COUNTRIES[id]||[]).slice().sort((a,b)=>b.yearly[currentYear]-a.yearly[currentYear]);
+      const countryRows = countries.map(ct=>{
+        const cr=ct.yearly[currentYear], cc=riskColor(cr);
+        const barW = cr;
+        return `<div style="display:flex;align-items:center;gap:7px;padding:5px 0 5px 8px;border-bottom:1px solid #f5f7fc;">
+          <span style="font-size:13px;flex-shrink:0;">${ct.flag}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;font-weight:600;color:#2d3748;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ct.name}</div>
+            <div style="height:3px;background:#edf2f7;border-radius:2px;margin-top:3px;">
+              <div style="width:${barW}%;height:100%;background:${cc.hex};border-radius:2px;opacity:0.75;"></div>
+            </div>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:${cc.hex};min-width:32px;text-align:right;">${cr}%</div>
+        </div>`;
+      }).join('');
+
+      return `<div style="margin-bottom:6px;background:#fff;border:1px solid var(--panel-border);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px var(--panel-shadow);">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer;background:#fff;"
+          onclick="toggleCountries('${id}')">
+          <div class="rg-dot" style="background:${c.hex};box-shadow:0 0 6px ${c.hex}55;"></div>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;color:#1a2340;">${r.name}</div>
+            <div style="height:3px;background:#edf2f7;border-radius:2px;margin-top:4px;">
+              <div style="width:${yr.risk}%;height:100%;background:${c.hex};border-radius:2px;"></div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px;font-weight:700;color:${c.hex};">${yr.risk}%</div>
+            <div style="font-size:9px;color:#e53e3e;font-weight:500;">−${yr.displaced}M</div>
+          </div>
+          <div id="chevron-${id}" style="font-size:10px;color:#8898aa;margin-left:2px;transition:transform 0.2s;">▶</div>
+        </div>
+        <div id="countries-${id}" style="display:none;border-top:1px solid #edf2f7;background:#fafbfd;">
+          ${countryRows}
+        </div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#8898aa;margin-bottom:10px;">Ranked Risk Index · ${currentYear}</div>
+      <div style="font-size:11px;color:#718096;margin-bottom:10px;">Click a region to expand country breakdown ▼</div>
+      ${rows}
+      <div style="margin-top:10px;background:#eef2ff;border:1px solid #c7d4ff;border-radius:9px;padding:10px 12px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#3b6ef5;margin-bottom:5px;">How to use</div>
+        <div style="font-size:11px;color:#4a5568;line-height:1.8;">🌍 <b>Drag</b> to spin the globe<br>📍 <b>Click</b> a spike to inspect<br>▶ <b>Play</b> to animate years<br>📊 Industry data on the left</div>
+      </div>`;
+
+    // Restore any previously open dropdowns without jitter
+    openCountries.forEach(id => {
+      const el2 = document.getElementById('countries-'+id);
+      const ch  = document.getElementById('chevron-'+id);
+      if(el2) el2.style.display = 'block';
+      if(ch)  ch.style.transform = 'rotate(90deg)';
+    });
+  }
+}
+
+// Track which country dropdowns are open — persists across renders
+const openCountries = new Set();
+
+function toggleCountries(id){
+  if(openCountries.has(id)) openCountries.delete(id);
+  else openCountries.add(id);
+  // Just toggle the DOM directly — no full re-render
+  const el = document.getElementById('countries-'+id);
+  const ch = document.getElementById('chevron-'+id);
+  if(el) el.style.display = openCountries.has(id) ? 'block' : 'none';
+  if(ch) ch.style.transform = openCountries.has(id) ? 'rotate(90deg)' : '';
+}
+
+function togglePlay(){
+  if(playing){
+    clearInterval(playTimer); playing=false;
+    document.getElementById('play-btn').textContent='▶ Play';
+    document.getElementById('play-btn').classList.remove('playing');
+  } else {
+    if(currentYear>=2029) setYear(2025);
+    playing=true;
+    document.getElementById('play-btn').textContent='■ Stop';
+    document.getElementById('play-btn').classList.add('playing');
+    playTimer=setInterval(()=>{
+      if(currentYear>=2029){ clearInterval(playTimer); playing=false; document.getElementById('play-btn').textContent='▶ Play'; document.getElementById('play-btn').classList.remove('playing'); return; }
+      setYear(currentYear+1);
+    },1500);
+  }
+}
+
+// ─── TAB SWITCHING ───────────────────────────────────────────
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
+  const isGlobe = tab === 'globe';
+  document.getElementById('main').style.display    = isGlobe ? 'flex' : 'none';
+  document.getElementById('pop-tab').style.display = isGlobe ? 'none' : 'block';
+  if(!isGlobe && !document.getElementById('pop-tab').dataset.built){
+    buildPopTab();
+    document.getElementById('pop-tab').dataset.built = '1';
+  }
+}
+
+function buildPopTab(){
+  const COUNTRIES_POP = [
+    // ── SOUTH ASIA ──────────────────────────────────────────────────────
+    {
+      region:"South Asia",
+      name:"India", flag:"🇮🇳", pop:1428,
+      tagline:"Maximum Exposure — The Perfect Storm", tagColor:"#c53030", tagBg:"#fff0f0",
+      score:94, scoreColor:"#c53030",
+      metrics:[
+        {label:"Population",  val:"1.43B",  bar:100, color:"#e53e3e"},
+        {label:"AI Risk",     val:"96%",    bar:96,  color:"#ff4444"},
+        {label:"Governance",  val:"28/100", bar:28,  color:"#dd6b20"},
+        {label:"Skill Gap",   val:"81%",    bar:81,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"92%",    bar:92,  color:"#805ad5"},
+      ],
+      analysis:`<strong>India faces the most acute convergence of compounding crises of any nation on Earth.</strong> With 1.43 billion people and a back-office workforce of ~12 million directly in AI's crosshairs, the sheer scale of displacement will be unlike anything seen before. The BPO sector — built on cheap English-speaking labour — is structurally obsolete. LLMs now do the work of entire floors of data-entry workers at a fraction of the cost.
+      <br><br>Compounding this: <strong>governance dysfunction</strong> at state and national levels means retraining programs are plagued by corruption and bureaucratic capture. The "Digital India" narrative masks a vast low-skill informal workforce with no safety net. Climate change is accelerating crop failures across Uttar Pradesh, Bihar, and Madhya Pradesh — creating a pressure valve pushing hundreds of millions toward already-strained cities.
+      <br><br>Air quality in major metros (Delhi AQI routinely >400) degrades cognitive capacity and productivity. <strong>India's youth bulge — 600M under 25 — will hit the labour market at exactly the moment AI absorbs the entry-level jobs they expected.</strong> The political implications of mass youth unemployment in a country with a history of caste conflict and regional separatism are severe.`,
+      wildcards:["BPO Collapse","Youth Unemployment","Climate Migration","Caste Conflict","Political Instability","Air Quality Crisis","Education Deficit"]
+    },
+    {
+      region:"South Asia",
+      name:"Bangladesh", flag:"🇧🇩", pop:173,
+      tagline:"Garment Economy — Double Threat of Automation & Floods", tagColor:"#c53030", tagBg:"#fff0f0",
+      score:82, scoreColor:"#c53030",
+      metrics:[
+        {label:"Population",  val:"173M", bar:12,  color:"#e53e3e"},
+        {label:"AI Risk",     val:"89%",  bar:89,  color:"#ff4444"},
+        {label:"Governance",  val:"32/100",bar:32, color:"#dd6b20"},
+        {label:"Skill Gap",   val:"78%",  bar:78,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"98%",  bar:98,  color:"#805ad5"},
+      ],
+      analysis:`Bangladesh may be the single most climate-vulnerable large economy on Earth. <strong>One-third of the country floods annually; by 2050 up to 17% of land could be permanently inundated</strong>, displacing 30–40 million people before AI contributes a single redundancy.
+      <br><br>The RMG (ready-made garment) sector employs ~4 million workers, mostly women, and is the backbone of the economy. <strong>Robotic sewing and automated quality-control systems are already being piloted</strong> by global fashion brands seeking to reshore production. When that automation deploys, Bangladesh loses its primary comparative advantage simultaneously with climate-driven coastal displacement.
+      <br><br>The combination — climate refugee pressure + mass manufacturing unemployment + weak governance + limited fiscal space — makes Bangladesh one of the most acutely exposed nations per capita in the world.`,
+      wildcards:["Sea Level Rise","RMG Automation","Climate Displacement","Remittance Dependency","Political Repression"]
+    },
+    {
+      region:"South Asia",
+      name:"Pakistan", flag:"🇵🇰", pop:231,
+      tagline:"Political Fragility — Compounding Economic Collapse", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:76, scoreColor:"#c05621",
+      metrics:[
+        {label:"Population",  val:"231M",  bar:16,  color:"#e53e3e"},
+        {label:"AI Risk",     val:"71%",   bar:71,  color:"#ff8800"},
+        {label:"Governance",  val:"22/100",bar:22,  color:"#e53e3e"},
+        {label:"Skill Gap",   val:"79%",   bar:79,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"88%",   bar:88,  color:"#805ad5"},
+      ],
+      analysis:`Pakistan entered the AI era already in crisis. <strong>The IMF has repeatedly had to intervene; the rupee lost over 50% of its value in two years; and political chaos has resulted in a former prime minister jailed and the military openly directing civilian governance.</strong> Against this backdrop, AI automation is a secondary pressure — but an accelerant.
+      <br><br>Pakistan's IT sector and freelancing economy (it is among the top 5 global freelancing nations by volume) is directly in the crosshairs of LLM-driven automation. The 2022 floods submerged one-third of the country, killing 1,700 people and causing $30B in damage. Climate vulnerability is extreme — glacier melt threatens water supplies while heat waves push agricultural productivity toward collapse.
+      <br><br><strong>Brain drain is accelerating</strong> — the professionals most capable of navigating AI disruption are leaving for the Gulf, UK, and Canada. What remains is a young, undereducated, politically radicalised population with diminishing economic options.`,
+      wildcards:["IMF Dependency","Political Crisis","Climate Catastrophe","Brain Drain","Glacier Melt","Freelance Economy Collapse"]
+    },
+
+    // ── EAST ASIA ────────────────────────────────────────────────────────
+    {
+      region:"East Asia",
+      name:"China", flag:"🇨🇳", pop:1412,
+      tagline:"Managed Disruption — Authoritarian Advantage", tagColor:"#276749", tagBg:"#f0fff4",
+      score:61, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"1.41B", bar:99,  color:"#e53e3e"},
+        {label:"AI Risk",     val:"88%",   bar:88,  color:"#ff8800"},
+        {label:"Governance",  val:"68/100",bar:68,  color:"#38a169"},
+        {label:"Skill Gap",   val:"44%",   bar:44,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"55%",   bar:55,  color:"#805ad5"},
+      ],
+      analysis:`China presents a radically different picture to India despite similar population scale. <strong>The CCP has made AI displacement a managed state project</strong> — retraining programs are mandatory, funded at scale, and enforced top-down. The "Made in China 2025" pivot was precisely about absorbing automation shock by moving up the value chain before it hit.
+      <br><br>Crucially, China reversed its pollution trajectory decisively after the 2013–2017 "airpocalypse." Beijing air quality improved ~50% by 2022. The state can enforce industrial policy that democracies cannot — coal plants closed on schedule, EV adoption mandated overnight. <strong>This governance capacity is a genuine buffer against disruption.</strong>
+      <br><br>China's risks are different: an ageing population (one-child policy legacy), a property sector crisis, and geopolitical isolation limiting export markets. Manufacturing automation will displace 80–100M factory workers over the next decade. <strong>China will manage the transition more orderly than India, but not without hidden social strain.</strong>`,
+      wildcards:["Manufacturing Automation","Aging Demographics","Property Debt Crisis","Export Market Loss","Social Contract Strain"]
+    },
+    {
+      region:"East Asia",
+      name:"Japan", flag:"🇯🇵", pop:124,
+      tagline:"Demographic Cliff Meets AI — Paradox of Plenty", tagColor:"#3b6ef5", tagBg:"#eef2ff",
+      score:44, scoreColor:"#3b6ef5",
+      metrics:[
+        {label:"Population",  val:"124M",  bar:9,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"87%",   bar:87,  color:"#ff8800"},
+        {label:"Governance",  val:"82/100",bar:82,  color:"#38a169"},
+        {label:"Skill Gap",   val:"31%",   bar:31,  color:"#38a169"},
+        {label:"Climate Exp.",val:"48%",   bar:48,  color:"#805ad5"},
+      ],
+      analysis:`Japan's AI story is unlike any other developed nation. <strong>With the world's most acute demographic crisis — a shrinking, rapidly ageing population — AI automation is as much solution as threat.</strong> Japan has been piloting care robots, logistics AI, and administrative automation for decades precisely because it has a labour shortage, not a surplus.
+      <br><br>The paradox: Japan's white-collar workforce is heavily invested in paper-based, manual processes (the fax machine remained standard in government offices until 2024). <strong>Japan ranks among the world's most AI-disruptable office workforces</strong>, but the workers displaced are in a country that desperately needs workers. The transition friction comes not from mass unemployment but from cultural resistance to reskilling in a society that prizes lifetime employment at single companies.
+      <br><br>Japan's governance capacity, social cohesion, and fiscal tools are strong. The risk is stagnation rather than crisis — a failure to adapt quickly enough to remain competitive as South Korea and China race ahead in AI deployment.`,
+      wildcards:["Demographic Collapse","Cultural Resistance to Change","Process Digitisation Lag","Deflation Trap","Isolation Risk"]
+    },
+    {
+      region:"East Asia",
+      name:"South Korea", flag:"🇰🇷", pop:52,
+      tagline:"Tech-First Economy — Chaebol AI Race", tagColor:"#276749", tagBg:"#f0fff4",
+      score:38, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"52M",   bar:4,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"90%",   bar:90,  color:"#ff4444"},
+        {label:"Governance",  val:"80/100",bar:80,  color:"#38a169"},
+        {label:"Skill Gap",   val:"25%",   bar:25,  color:"#38a169"},
+        {label:"Climate Exp.",val:"38%",   bar:38,  color:"#805ad5"},
+      ],
+      analysis:`South Korea occupies a fascinating position: <strong>one of the world's highest AI risk scores for white-collar displacement, paired with one of the world's strongest institutional and corporate capacities to manage it.</strong> Samsung, LG, Hyundai, and Kakao are not victims of AI disruption — they are its architects.
+      <br><br>The chaebol structure, often criticised for stifling entrepreneurship, may prove advantageous in AI transition — large conglomerates can absorb and redeploy workers internally in ways smaller firms cannot. South Korea's education system, though under pressure for overemphasising rote learning, produces graduates with high baseline technical literacy.
+      <br><br><strong>The real risks are social:</strong> extreme youth unemployment exists despite overall low unemployment (young Koreans are opting out of a system they feel rigged against them). The birth rate — the lowest in the world at 0.72 — signals a population that has lost faith in the future. AI automation of entry-level white-collar roles will intensify this despair if not managed carefully.`,
+      wildcards:["Chaebol Concentration","Youth Despair","Ultra-Low Birth Rate","Rote Education System","North Korea Risk"]
+    },
+
+    // ── SOUTHEAST ASIA ───────────────────────────────────────────────────
+    {
+      region:"Southeast Asia",
+      name:"Philippines", flag:"🇵🇭", pop:115,
+      tagline:"BPO Nation — Existential AI Threat", tagColor:"#c53030", tagBg:"#fff0f0",
+      score:88, scoreColor:"#c53030",
+      metrics:[
+        {label:"Population",  val:"115M",  bar:8,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"91%",   bar:91,  color:"#ff4444"},
+        {label:"Governance",  val:"36/100",bar:36,  color:"#dd6b20"},
+        {label:"Skill Gap",   val:"55%",   bar:55,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"94%",   bar:94,  color:"#805ad5"},
+      ],
+      analysis:`The Philippines built its entire modern economy on one bet: English-speaking, culturally Western-aligned labour for global back-office operations. <strong>BPO employs 1.3 million Filipinos directly and accounts for ~9% of GDP</strong> — more than any other sector. LLMs represent an existential threat to this model in a way few other countries face so nakedly.
+      <br><br>The country already sits in the western Pacific typhoon belt — among the most climate-exposed nations on Earth. Typhoon Haiyan in 2013 killed 7,000 people; stronger storms are projected to intensify. <strong>Simultaneously losing climate stability and the primary income engine creates a compounding spiral</strong> with no clear policy response in a country where governance quality is chronically weak.
+      <br><br>Remittances from overseas workers (~10% of GDP) provide a second buffer — but OFW workers in Gulf construction, domestic work in Hong Kong, and manufacturing in Europe are themselves facing automation. The Philippines has very few rungs left to climb if BPO falls.`,
+      wildcards:["BPO Structural Collapse","Typhoon Intensification","Remittance Decline","Youth Unemployment","Governance Crisis","Sea Level Rise"]
+    },
+    {
+      region:"Southeast Asia",
+      name:"Indonesia", flag:"🇮🇩", pop:277,
+      tagline:"Archipelago Challenge — Scale Without Cohesion", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:67, scoreColor:"#dd6b20",
+      metrics:[
+        {label:"Population",  val:"277M",  bar:19,  color:"#e53e3e"},
+        {label:"AI Risk",     val:"76%",   bar:76,  color:"#ff8800"},
+        {label:"Governance",  val:"38/100",bar:38,  color:"#dd6b20"},
+        {label:"Skill Gap",   val:"67%",   bar:67,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"79%",   bar:79,  color:"#805ad5"},
+      ],
+      analysis:`Indonesia's AI challenge is fundamentally a geography problem. <strong>277 million people spread across 17,000 islands, with Java hosting 60% of the population and economic activity, while outer islands remain chronically underdeveloped.</strong> Any national AI policy, retraining program, or safety net faces impossible distribution challenges.
+      <br><br>Jakarta — the capital — is literally sinking, losing up to 25cm annually in some areas from groundwater extraction. The government's response (moving the capital to Nusantara in Borneo) is both audacious and a signal of how severe the problem is. Meanwhile, Borneo's deforestation for palm oil is accelerating.
+      <br><br>The commodity economy (nickel, coal, palm oil) provides a buffer but also an addiction. <strong>Indonesia's young digital economy — GoTo, Tokopedia, the startup ecosystem — represents the adaptation path, but it serves mainly urban Java and is insufficient at national scale.</strong>`,
+      wildcards:["Geographic Fragmentation","Deforestation Acceleration","Jakarta Sinking","Coal Dependency","Nickel Supply Chain Risks"]
+    },
+    {
+      region:"Southeast Asia",
+      name:"Malaysia", flag:"🇲🇾", pop:33,
+      tagline:"Middle Income Trap — AI Arrives Before Escape Velocity", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:55, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"33M",   bar:2,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"78%",   bar:78,  color:"#ff8800"},
+        {label:"Governance",  val:"52/100",bar:52,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"52%",   bar:52,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"65%",   bar:65,  color:"#805ad5"},
+      ],
+      analysis:`Malaysia has spent two decades trying to escape the middle-income trap — the plateau where a country becomes too expensive for low-skill manufacturing but lacks the institutions and skills for high-value services. <strong>AI may lock this trap permanently shut.</strong>
+      <br><br>Malaysia's financial services, shared services, and outsourcing sectors are significant employers of educated Malaysians. Kuala Lumpur has positioned itself as a regional hub for multinational back-office operations — exactly the work LLMs now perform better and cheaper. <strong>Penang's electronics manufacturing base faces robotics displacement simultaneously.</strong>
+      <br><br>On the positive side, Malaysia has stronger institutions than most Southeast Asian peers, a higher education system producing technical graduates, and data centre investment from hyperscalers (drawn by cheap electricity from gas and hydro). The race is whether AI infrastructure investment creates enough high-skill jobs to offset the displacement of middle-skilled workers.`,
+      wildcards:["Middle Income Trap","Shared Services Collapse","Ethnic Inequality Flashpoints","Deforestation","Political Gridlock"]
+    },
+    {
+      region:"Southeast Asia",
+      name:"Thailand", flag:"🇹🇭", pop:71,
+      tagline:"Tourism Economy — Aging Fast, Automating Slow", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:57, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"71M",   bar:5,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"72%",   bar:72,  color:"#ff8800"},
+        {label:"Governance",  val:"44/100",bar:44,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"60%",   bar:60,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"71%",   bar:71,  color:"#805ad5"},
+      ],
+      analysis:`Thailand faces a unique demographic challenge within Southeast Asia: <strong>it is ageing faster than any other ASEAN economy, approaching Japanese-style dependency ratios without Japanese-level wealth.</strong> By 2037, over 28% of Thais will be over 60 — an extraordinary burden on a still-developing economy.
+      <br><br>Tourism (~20% of GDP pre-COVID) is not directly AI-displaceable but creates a false sense of stability — the back-office, banking, insurance, and manufacturing admin sectors are acutely exposed. Thailand's auto industry (the "Detroit of Asia") faces an existential transition as EV manufacturing requires fewer, more skilled workers.
+      <br><br><strong>Political instability has been chronic</strong> — 13 coups since 1932, with military influence still shaping economic policy. Retraining programs and digital upskilling require sustained policy commitment that Thailand's political system has historically struggled to provide.`,
+      wildcards:["Demographic Aging","Tourism Dependency","Auto Industry Disruption","Political Instability","Flood Risk (Mekong)"]
+    },
+
+    // ── NORTH AMERICA ────────────────────────────────────────────────────
+    {
+      region:"North America",
+      name:"United States", flag:"🇺🇸", pop:335,
+      tagline:"Highest Absolute Displacement — Inequality Amplifier", tagColor:"#3b6ef5", tagBg:"#eef2ff",
+      score:58, scoreColor:"#3b6ef5",
+      metrics:[
+        {label:"Population",  val:"335M",  bar:24,  color:"#e53e3e"},
+        {label:"AI Risk",     val:"91%",   bar:91,  color:"#ff4444"},
+        {label:"Governance",  val:"72/100",bar:72,  color:"#38a169"},
+        {label:"Skill Gap",   val:"38%",   bar:38,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"52%",   bar:52,  color:"#805ad5"},
+      ],
+      analysis:`The United States will experience the largest absolute number of AI-displaced workers of any nation — because it has the world's largest and most AI-exposed white-collar economy. <strong>McKinsey estimates 12 million US workers will need to change occupations by 2030, with back-office roles facing the sharpest cuts.</strong>
+      <br><br>The US advantage: it is where most AI is being built, so first-mover adaptation opportunities are greatest. Silicon Valley, Boston, and New York are generating the replacement roles — AI governance, prompt engineering, ML operations — at pace. But these jobs are concentrated geographically and require skills that displaced call-centre workers in Ohio or insurance clerks in Tennessee do not possess.
+      <br><br><strong>The displacement is fundamentally an inequality story.</strong> A Princeton-educated software engineer in San Francisco gains; a medical billing clerk in a rural hospital system loses. The social safety net in the US is the weakest of any developed nation for exactly the workers most exposed. Political polarisation makes coordinated reskilling policy near-impossible.`,
+      wildcards:["Geographic Inequality","Skills Mismatch","Weak Social Safety Net","Political Gridlock","Climate Extremes","Healthcare Cost Crisis"]
+    },
+    {
+      region:"North America",
+      name:"Canada", flag:"🇨🇦", pop:40,
+      tagline:"Managed Transition — Immigration Offset, Policy Strength", tagColor:"#276749", tagBg:"#f0fff4",
+      score:34, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"40M",   bar:3,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"84%",   bar:84,  color:"#ff8800"},
+        {label:"Governance",  val:"88/100",bar:88,  color:"#38a169"},
+        {label:"Skill Gap",   val:"29%",   bar:29,  color:"#38a169"},
+        {label:"Climate Exp.",val:"44%",   bar:44,  color:"#805ad5"},
+      ],
+      analysis:`Canada presents one of the more optimistic AI transition stories among high-income nations. <strong>Strong institutions, universal healthcare (removing a major source of worker precarity), a skills-focused immigration system, and proximity to the US AI ecosystem</strong> create a relatively favorable environment for managed disruption.
+      <br><br>Canada's financial services, insurance, and public sector back-offices face the same automation wave as the US — but with a more robust social safety net. The CEWS and CERB pandemic programs demonstrated Canada's political capacity to rapidly deploy income support at scale. That capacity will be tested again as AI displacement accelerates.
+      <br><br><strong>Canada's risk is complacency.</strong> The country is resource-rich (oil sands, minerals, agriculture) and may underinvest in the AI transition because commodity revenues provide a buffer. The oil-dependent Alberta economy is particularly exposed if global decarbonisation and AI-driven energy efficiency erode fossil fuel demand simultaneously.`,
+      wildcards:["Oil Dependency (Alberta)","Housing Affordability Crisis","US Policy Linkage","Immigration System Strain","Wildfire Frequency"]
+    },
+    {
+      region:"North America",
+      name:"Mexico", flag:"🇲🇽", pop:128,
+      tagline:"Nearshoring Opportunity — But Governance Limits the Prize", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:63, scoreColor:"#dd6b20",
+      metrics:[
+        {label:"Population",  val:"128M",  bar:9,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"68%",   bar:68,  color:"#ff8800"},
+        {label:"Governance",  val:"35/100",bar:35,  color:"#dd6b20"},
+        {label:"Skill Gap",   val:"65%",   bar:65,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"73%",   bar:73,  color:"#805ad5"},
+      ],
+      analysis:`Mexico is at an extraordinary economic inflection point. <strong>The "nearshoring" wave — driven by US-China decoupling — is bringing manufacturing investment to northern Mexico at a historic rate.</strong> Monterrey and Tijuana are becoming industrial boomtowns. For a moment, it looked like Mexico had found its manufacturing-led development path, just as South Korea had in the 1970s.
+      <br><br>AI and robotics complicate this story. The same factories being built in Nuevo León are being designed for automation-first operations — fewer workers per square meter than the factories they replace. Mexico may attract manufacturing investment but capture fewer jobs from it than expected. Meanwhile, Mexico City's vast informal service economy and the country's large agricultural workforce face different but equally severe automation pressures.
+      <br><br><strong>Cartel violence and governance failure are the binding constraint.</strong> Foreign investors hedge their Mexican bets against security risk. The rule of law is too fragile to enforce the labour protections and retraining mandates that a just AI transition requires. The border economy creates dependency on US economic cycles that AI may amplify unpredictably.`,
+      wildcards:["Cartel Violence","Nearshoring Robotics Offset","Informal Economy Scale","Water Scarcity","US Trade Dependency","Agricultural Disruption"]
+    },
+
+    // ── SOUTH AMERICA ────────────────────────────────────────────────────
+    {
+      region:"South America",
+      name:"Brazil", flag:"🇧🇷", pop:215,
+      tagline:"Amazon at the Crossroads — Opportunity vs. Ecological Reckoning", tagColor:"#276749", tagBg:"#f0fff4",
+      score:52, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"215M",  bar:15,  color:"#e53e3e"},
+        {label:"AI Risk",     val:"70%",   bar:70,  color:"#ff8800"},
+        {label:"Governance",  val:"42/100",bar:42,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"58%",   bar:58,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"72%",   bar:72,  color:"#805ad5"},
+      ],
+      analysis:`Brazil sits at a pivotal moment. <strong>The Amazon rainforest — home to 10% of all species on Earth and a critical global carbon sink — has lost 17% of its original cover.</strong> Deforestation is beginning to disrupt regional rainfall patterns, threatening the agricultural sector that is Brazil's primary economic engine. The "flying rivers" are weakening, and São Paulo has already experienced severe water shortages.
+      <br><br>AI automation will hit Brazil's large financial services, telecom, and public administration sectors hard. <strong>The informal economy (~40% of workers) buffers immediate impact</strong>, but also means those workers have no access to reskilling programs when disruption arrives.
+      <br><br>Brazil's genuine advantage: natural resource wealth, an emerging cleantech sector, and a democratic tradition that has demonstrated the ability to course-correct. <strong>If Brazil can leverage its biodiversity as an economic asset and invest in education and AI readiness, the trajectory improves substantially.</strong>`,
+      wildcards:["Amazon Tipping Point","Agri-Climate Disruption","Water Scarcity","Informal Economy Shock","Political Polarisation"]
+    },
+    {
+      region:"South America",
+      name:"Colombia", flag:"🇨🇴", pop:52,
+      tagline:"Post-Conflict Transition — Peace Dividend vs. AI Disruption", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:59, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"52M",   bar:4,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"65%",   bar:65,  color:"#ff8800"},
+        {label:"Governance",  val:"40/100",bar:40,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"63%",   bar:63,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"67%",   bar:67,  color:"#805ad5"},
+      ],
+      analysis:`Colombia is in a delicate post-conflict reconstruction phase. The 2016 FARC peace deal promised a "peace dividend" — investment, tourism, and economic normalisation after half a century of civil war. <strong>AI disruption arrives at exactly the moment Colombia needed stable employment growth to reintegrate combatants and displaced communities.</strong>
+      <br><br>Medellín's transformation from murder capital to tech hub is genuine — the city's innovation ecosystem is among Latin America's most vibrant. But this urban success story coexists with vast rural poverty, coca cultivation dependencies, and the ongoing ELN insurgency. <strong>Colombia's BPO sector in Bogotá and Medellín is growing rapidly — and is directly in AI's crosshairs.</strong>
+      <br><br>Climate vulnerability is high: the Andes glaciers feeding Colombia's water supply are retreating rapidly. Coffee-growing regions face temperature and rainfall shifts that threaten the crop that defines Colombian identity and provides millions of rural livelihoods.`,
+      wildcards:["Post-Conflict Fragility","BPO Exposure","Coca Economy Dependency","Glacier Retreat","ELN Insurgency"]
+    },
+    {
+      region:"South America",
+      name:"Argentina", flag:"🇦🇷", pop:46,
+      tagline:"Chronic Crisis Country — AI on Top of Hyperinflation", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:61, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"46M",   bar:3,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"67%",   bar:67,  color:"#ff8800"},
+        {label:"Governance",  val:"33/100",bar:33,  color:"#dd6b20"},
+        {label:"Skill Gap",   val:"48%",   bar:48,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"62%",   bar:62,  color:"#805ad5"},
+      ],
+      analysis:`Argentina is a country of extraordinary human capital trapped in an extraordinary governance failure. <strong>The country has defaulted on its sovereign debt nine times — more than any other nation.</strong> Inflation has repeatedly exceeded 100% annually, destroying savings, pension values, and the middle class's ability to invest in reskilling.
+      <br><br>Argentina produces world-class engineers, data scientists, and designers — who immediately emigrate. The tech diaspora in San Francisco, Madrid, and London is a testament to what Argentina could be if its institutions functioned. <strong>Milei's radical austerity experiment in 2024 added a layer of social fragility on top of existing economic chaos.</strong>
+      <br><br>The Pampas agricultural heartland faces drought intensification driven by La Niña cycles amplified by climate change. As a major global soy and beef exporter, agricultural disruption has outsized GDP implications. AI in logistics and agri-management is being adopted, but benefits accrue to large landowners, not rural workers.`,
+      wildcards:["Hyperinflation","Sovereign Default History","Brain Drain","Agricultural Drought","Political Radicalism","Peso Collapse"]
+    },
+    {
+      region:"South America",
+      name:"Chile", flag:"🇨🇱", pop:19,
+      tagline:"Most Stable — But Lithium Economy Faces Automation Too", tagColor:"#276749", tagBg:"#f0fff4",
+      score:39, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"19M",   bar:1,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"72%",   bar:72,  color:"#ff8800"},
+        {label:"Governance",  val:"74/100",bar:74,  color:"#38a169"},
+        {label:"Skill Gap",   val:"38%",   bar:38,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"54%",   bar:54,  color:"#805ad5"},
+      ],
+      analysis:`Chile is Latin America's governance success story — consistently the region's least corrupt nation, with the deepest capital markets, strongest institutions, and most diversified economy. <strong>The copper and lithium industries (Chile holds 28% of the world's lithium reserves) position it uniquely in the green energy transition.</strong>
+      <br><br>AI risk is real but manageable: Chile's mining sector is already heavily automated, financial services will face displacement pressure, and the public sector — historically bloated — is an obvious target for efficiency. But Chile has the institutional capacity to manage these transitions through worker compensation, retraining, and social programs that its neighbours lack.
+      <br><br><strong>The 2019 social uprising was a warning:</strong> even Chile's relative stability masks deep inequality. The Gini coefficient remains among the world's highest for a developed economy. If AI productivity gains accrue primarily to capital owners and mining multinationals rather than workers, the social contract that survived 2019 may not survive 2029.`,
+      wildcards:["Inequality Flashpoints","Lithium Geopolitics","Water Scarcity (Atacama)","Social Unrest Risk","Constitutional Uncertainty"]
+    },
+
+    // ── EUROPE ───────────────────────────────────────────────────────────
+    {
+      region:"Europe",
+      name:"Germany", flag:"🇩🇪", pop:84,
+      tagline:"Industrial Giant — Engineering Its Own Transition", tagColor:"#276749", tagBg:"#f0fff4",
+      score:41, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"84M",   bar:6,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"79%",   bar:79,  color:"#ff8800"},
+        {label:"Governance",  val:"86/100",bar:86,  color:"#38a169"},
+        {label:"Skill Gap",   val:"30%",   bar:30,  color:"#38a169"},
+        {label:"Climate Exp.",val:"38%",   bar:38,  color:"#805ad5"},
+      ],
+      analysis:`Germany's AI challenge is simultaneously large in scale and manageable in character. <strong>The Mittelstand — the backbone of mid-size industrial firms employing millions in precision manufacturing and engineering — faces profound automation.</strong> German auto giants (VW, BMW, Mercedes) are transitioning from ICE to EV production, a shift that requires 30–40% fewer manufacturing workers at the same output level.
+      <br><br>Germany's institutional response is strong: the Kurzarbeit (short-time work) scheme — deployed successfully in the 2009 financial crisis and COVID — can cushion displacement. The dual apprenticeship system creates a culture of continuous reskilling that most nations lack. <strong>Unions (IG Metall, ver.di) have formal co-determination rights on company boards</strong> — giving workers genuine power to negotiate AI transition terms.
+      <br><br>The constraint is pace. Germany's bureaucratic culture and political consensus requirements slow digital transformation. The energy crisis following Russia's Ukraine invasion accelerated de-industrialisation pressure on energy-intensive sectors. Germany needs to adapt faster than its culture naturally allows.`,
+      wildcards:["Auto Industry Transformation","Energy Cost Crisis","Bureaucratic Inertia","East-West Divide","Demographic Shortage"]
+    },
+    {
+      region:"Europe",
+      name:"United Kingdom", flag:"🇬🇧", pop:67,
+      tagline:"Post-Brexit Disruption Layer on Top of AI Transition", tagColor:"#3b6ef5", tagBg:"#eef2ff",
+      score:46, scoreColor:"#3b6ef5",
+      metrics:[
+        {label:"Population",  val:"67M",   bar:5,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"83%",   bar:83,  color:"#ff8800"},
+        {label:"Governance",  val:"81/100",bar:81,  color:"#38a169"},
+        {label:"Skill Gap",   val:"35%",   bar:35,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"41%",   bar:41,  color:"#805ad5"},
+      ],
+      analysis:`The UK faces a uniquely compounded disruption: <strong>Brexit already restructured labour markets, reduced access to EU talent pools, and introduced trade friction</strong> — and now AI arrives before the adjustment is complete. Financial services (the City of London employs hundreds of thousands in exactly the back-office roles AI targets) are both the UK's most AI-exposed and most economically critical sector.
+      <br><br>The UK has genuine AI strengths: DeepMind (Gemini), ARM, and a world-class university ecosystem (Oxford, Cambridge, Imperial, UCL) generate the researchers and startups navigating the frontier. The government's AI Safety Institute represents a serious institutional commitment to responsible deployment. <strong>But these gains are London-centric, while displaced workers are often in the Midlands, South Wales, or the North.</strong>
+      <br><br>The regional dimension of AI displacement in the UK maps almost perfectly onto the Brexit vote geography — places that felt "left behind" by globalisation are the same places most exposed to the next wave of automation. Managing this will require a political will the UK has not consistently demonstrated.`,
+      wildcards:["Brexit Adjustment Burden","London-Regional Divide","Financial Services Exposure","NHS Strain","Political Instability"]
+    },
+    {
+      region:"Europe",
+      name:"France", flag:"🇫🇷", pop:68,
+      tagline:"Welfare State Buffer — But Structural Rigidity Risk", tagColor:"#276749", tagBg:"#f0fff4",
+      score:37, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"68M",   bar:5,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"75%",   bar:75,  color:"#ff8800"},
+        {label:"Governance",  val:"79/100",bar:79,  color:"#38a169"},
+        {label:"Skill Gap",   val:"32%",   bar:32,  color:"#38a169"},
+        {label:"Climate Exp.",val:"42%",   bar:42,  color:"#805ad5"},
+      ],
+      analysis:`France enters the AI era with one of the world's most comprehensive social safety nets — unemployment benefits that can last up to 2 years, universal healthcare, and strong labour protections. <strong>This insulates workers during the transition period far better than anglophone peers.</strong> The Grandes Écoles produce world-class engineering and data science talent. Mistral AI emerging from Paris signals France's genuine AI ambition.
+      <br><br>The risk is structural rigidity. France's labour laws make rapid workforce restructuring difficult and expensive — which is protective for workers but slows adaptation at the firm level. <strong>The gilets jaunes movement of 2018 showed how quickly economic dislocation can ignite political crisis</strong>, even in France's stable democracy.
+      <br><br>France's public sector is enormous (the state employs 20% of workers) — a significant buffer against private-sector automation, but also an enormous target when governments eventually pursue AI-driven efficiency in administration. Nuclear-powered energy gives France a cost advantage in AI compute — a genuine long-run competitive asset.`,
+      wildcards:["Labour Law Rigidity","Gilets Jaunes Recurrence","Pension System Strain","Banlieue Unemployment","AI Sovereignty Push"]
+    },
+    {
+      region:"Europe",
+      name:"Italy", flag:"🇮🇹", pop:59,
+      tagline:"Aging South — Demographic Decline Meets Digital Lag", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:54, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"59M",   bar:4,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"74%",   bar:74,  color:"#ff8800"},
+        {label:"Governance",  val:"54/100",bar:54,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"49%",   bar:49,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"55%",   bar:55,  color:"#805ad5"},
+      ],
+      analysis:`Italy faces a uniquely severe convergence of structural weaknesses entering the AI era. <strong>Europe's second-oldest population (after Germany), a public debt at 140% of GDP, chronic political instability (68 governments since 1946), and a North-South divide that has never been resolved.</strong>
+      <br><br>The Mezzogiorno (southern Italy) already has youth unemployment above 30% before AI impact. Northern Italy's manufacturing base — luxury goods, food, fashion, precision engineering — is more resilient but not immune. Italy's SME-dominated economy (firms of <50 employees represent 80% of employment) means AI adoption will be fragmented and slow, but so will adaptation capacity.
+      <br><br><strong>Brain drain is chronic and accelerating:</strong> Italy loses 100,000+ graduates annually who cannot find qualifying work. Those who remain are often in state-protected roles or family businesses — both sectors that AI disruption will reach last but hit hard when it arrives. Mediterranean heat extremes are already reducing agricultural productivity in the south.`,
+      wildcards:["Mezzogiorno Crisis","Sovereign Debt","Brain Drain","Political Instability","Tourism Over-Dependence","Mediterranean Heat"]
+    },
+    {
+      region:"Europe",
+      name:"Spain", flag:"🇪🇸", pop:47,
+      tagline:"Youth Unemployment Legacy — AI Adds New Pressure", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:48, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"47M",   bar:3,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"72%",   bar:72,  color:"#ff8800"},
+        {label:"Governance",  val:"65/100",bar:65,  color:"#38a169"},
+        {label:"Skill Gap",   val:"44%",   bar:44,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"63%",   bar:63,  color:"#805ad5"},
+      ],
+      analysis:`Spain has never fully recovered its pre-2008 employment trajectory. <strong>Youth unemployment has exceeded 30% for most of the past 15 years — a lost generation whose skills atrophied during the austerity decade.</strong> This structural underemployment creates a fragile foundation for absorbing AI displacement.
+      <br><br>Spain's economy is heavily tourism-dependent (~13% of GDP) — a sector not directly AI-displaceable but vulnerable to climate-driven Mediterranean heat extremes that are already making August holidays in Seville and southern Spain nearly unbearable. The financial services and telecom sectors (Santander, BBVA, Telefónica are headquartered in Madrid) face significant back-office automation.
+      <br><br><strong>The positive case:</strong> Spain has Europe's most ambitious renewable energy buildout, creating new sectors. The government has implemented a "digital reskilling" program targeting 1 million workers. Catalonian and Basque tech ecosystems are genuine. But the institutional capacity to execute nationally at scale remains unproven.`,
+      wildcards:["Youth Unemployment Legacy","Tourism Climate Risk","Catalan Separatism","Housing Crisis","Agricultural Drought"]
+    },
+    {
+      region:"Europe",
+      name:"Poland", flag:"🇵🇱", pop:38,
+      tagline:"EU's Manufacturing Hub — Wages Rising Into Automation Range", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:49, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"38M",   bar:3,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"76%",   bar:76,  color:"#ff8800"},
+        {label:"Governance",  val:"58/100",bar:58,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"42%",   bar:42,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"41%",   bar:41,  color:"#805ad5"},
+      ],
+      analysis:`Poland's economic miracle — from communist basket case to EU success story in 30 years — was built on a classic development model: educated, low-cost labour absorbing manufacturing relocated from Western Europe. <strong>That model is now threatened from both ends simultaneously: wages have risen toward Western European levels, while AI and robotics eliminate the advantage of human labour cost entirely.</strong>
+      <br><br>Poland has attracted enormous BPO and shared-service investment from global firms (Kraków and Warsaw are major European back-office hubs) — precisely the sector most exposed to LLM automation. The IT sector is a genuine bright spot, with strong engineering talent. But <strong>the PiS-era rule-of-law erosion damaged institutional quality</strong> and complicated EU fund access critical for digital transition investment.
+      <br><br>Energy is Poland's structural vulnerability — still 70% coal-dependent. Decarbonisation under EU pressure will restructure the industrial heartland of Silesia at the same moment AI restructures the service economy. Two simultaneous industrial revolutions with limited policy bandwidth to manage both.`,
+      wildcards:["BPO Hub Exposure","Coal Transition","Rule of Law Erosion","Silesian Deindustrialisation","Ukrainian Refugee Integration"]
+    },
+    {
+      region:"Europe",
+      name:"Sweden", flag:"🇸🇪", pop:10,
+      tagline:"Nordic Model — Best Positioned for AI Transition Globally", tagColor:"#276749", tagBg:"#f0fff4",
+      score:21, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"10M",   bar:1,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"80%",   bar:80,  color:"#ff8800"},
+        {label:"Governance",  val:"94/100",bar:94,  color:"#38a169"},
+        {label:"Skill Gap",   val:"14%",   bar:14,  color:"#38a169"},
+        {label:"Climate Exp.",val:"28%",   bar:28,  color:"#805ad5"},
+      ],
+      analysis:`Sweden represents the global benchmark for AI transition readiness. <strong>Near-zero corruption, world-class education, active labour market policies, universal healthcare, and a cultural embrace of technological change</strong> — the Nordic model was effectively designed for this moment.
+      <br><br>Swedish workers displaced by automation receive retraining stipends, job-search support, and income replacement through a system so well-designed that OECD regularly holds it up as a model. Ericsson, Spotify, Klarna — Sweden's tech champion tradition means high-quality AI-era jobs are being created domestically. <strong>The country's small size and high social trust allow policy experiments that would be impossible at larger scale.</strong>
+      <br><br>Risks are real but manageable: Spotify and gaming layoffs in 2023–24 showed that even Sweden is not immune to tech sector volatility. Immigration integration has been difficult, creating a two-tier labour market. Gang violence — paradoxically linked to the same globalisation displacement Sweden otherwise managed well — is a genuine social stress. But on any global comparison, Sweden enters the AI era in the strongest position.`,
+      wildcards:["Tech Sector Volatility","Immigration Integration","Gang Violence Emergence","NATO Transition","Housing Costs"]
+    },
+
+    // ── GULF / MIDDLE EAST ───────────────────────────────────────────────
+    {
+      region:"Gulf & Middle East",
+      name:"Saudi Arabia", flag:"🇸🇦", pop:36,
+      tagline:"Vision 2030 Race — AI Before Oil Runs Out", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:55, scoreColor:"#d69e2e",
+      metrics:[
+        {label:"Population",  val:"36M",   bar:3,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"74%",   bar:74,  color:"#ff8800"},
+        {label:"Governance",  val:"48/100",bar:48,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"61%",   bar:61,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"89%",   bar:89,  color:"#805ad5"},
+      ],
+      analysis:`Saudi Arabia is running against a double clock. <strong>Vision 2030 aims to wean the economy off oil dependency before peak oil demand arrives — and AI automation is compressing that timeline.</strong> The Public Investment Fund is deploying hundreds of billions into diversification: NEOM, tourism, entertainment, financial services, logistics. But these sectors are also AI's primary targets.
+      <br><br>The emiratisation/Saudisation programmes mandate local employment quotas — a state intervention that can buffer displacement but also creates inefficiency. <strong>Over 10 million foreign workers (30% of the population) perform the country's manual and service labour</strong> — when AI automates back-office work, the political pressure will be to protect Saudi nationals' white-collar roles at the expense of expat workers, who will simply be deported, not retrained.
+      <br><br>Climate risk is existential in the most literal sense: wet-bulb temperatures approaching human survivability limits are projected for Gulf cities by mid-century. The entire GDP model (oil extraction in extreme heat) faces a physical planetary constraint regardless of AI trajectory.`,
+      wildcards:["Oil Revenue Dependency","Wet-Bulb Temperature Limits","Expat Worker Deportation","Vision 2030 Execution Risk","Youth Unemployment (Saudi nationals)"]
+    },
+    {
+      region:"Gulf & Middle East",
+      name:"UAE", flag:"🇦🇪", pop:10,
+      tagline:"AI-First Gulf State — Ambitious But Authoritarian", tagColor:"#3b6ef5", tagBg:"#eef2ff",
+      score:36, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"10M",   bar:1,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"78%",   bar:78,  color:"#ff8800"},
+        {label:"Governance",  val:"66/100",bar:66,  color:"#38a169"},
+        {label:"Skill Gap",   val:"33%",   bar:33,  color:"#38a169"},
+        {label:"Climate Exp.",val:"88%",   bar:88,  color:"#805ad5"},
+      ],
+      analysis:`The UAE has positioned itself as the Gulf's AI capital — the country is home to Technology Innovation Institute (TII), which built the Falcon LLM; Abu Dhabi is constructing the world's largest AI data centre cluster; Dubai is integrating AI into government services at a pace most democracies cannot match. <strong>The authoritarian governance structure, far from being a liability here, is an accelerant — decisions are implemented without the friction of democratic debate.</strong>
+      <br><br>The UAE's 89% expat population creates a unique labour dynamic: displaced workers are not citizens who vote and protest — they are contract labourers who are simply not renewed. This creates a "managed transition" that looks smooth from the outside but involves invisible mass displacement of South Asian and Filipino workers with no safety net.
+      <br><br><strong>The genuine UAE advantage:</strong> it is actively building the AI infrastructure layer (data centres, regulatory sandboxes, sovereign AI funds) that will power the Gulf's AI era. Dubai's DIFC and Abu Dhabi's ADGM are creating regulatory frameworks designed to attract AI companies. The risk is that this AI leadership benefits primarily the state and capital holders, while the 89% non-citizen workforce bears all the costs.`,
+      wildcards:["Expat Deportation Risk","Climate Uninhabitability","Water Desalination Dependency","Geopolitical Exposure","Democratic Accountability Void"]
+    },
+    {
+      region:"Gulf & Middle East",
+      name:"Qatar", flag:"🇶🇦", pop:3,
+      tagline:"Sovereign Wealth Hedge — AI Transition Well-Funded", tagColor:"#276749", tagBg:"#f0fff4",
+      score:28, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"3M",    bar:1,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"69%",   bar:69,  color:"#ff8800"},
+        {label:"Governance",  val:"60/100",bar:60,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"28%",   bar:28,  color:"#38a169"},
+        {label:"Climate Exp.",val:"91%",   bar:91,  color:"#805ad5"},
+      ],
+      analysis:`Qatar's extraordinary LNG revenues and $450B+ sovereign wealth fund (QIA) give it resources to manage any economic transition that money can solve — and much of AI disruption is, at its core, a resource allocation problem. <strong>Qatar can literally fund universal reskilling, income replacement, and AI investment simultaneously without running a deficit.</strong>
+      <br><br>The country's 300,000 Qatari citizens are largely insulated by state employment and wealth distribution. The 2.7 million migrant workers — the stadium builders, the domestic workers, the logistics army — face a different reality, with kafala system restrictions making them structurally voiceless and deportable.
+      <br><br><strong>Climate is Qatar's existential risk no amount of wealth fully addresses.</strong> Doha's summer temperatures already exceed 45°C; wet-bulb limits for outdoor work are being reached. Desalinated water for a population of 3 million in a desert is manageable but fragile. The long-run question is whether Qatar can use its wealth window to build an economy that survives a post-fossil-fuel, climate-stressed world.`,
+      wildcards:["Kafala Worker System","Wet-Bulb Temperature Extremes","Post-LNG Revenue Cliff","Water Desalination Fragility","Regional Geopolitics"]
+    },
+    {
+      region:"Gulf & Middle East",
+      name:"Egypt", flag:"🇪🇬", pop:105,
+      tagline:"100M Under Pressure — Suez Economy Meets AI", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:72, scoreColor:"#c05621",
+      metrics:[
+        {label:"Population",  val:"105M",  bar:7,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"62%",   bar:62,  color:"#ff8800"},
+        {label:"Governance",  val:"26/100",bar:26,  color:"#e53e3e"},
+        {label:"Skill Gap",   val:"70%",   bar:70,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"84%",   bar:84,  color:"#805ad5"},
+      ],
+      analysis:`Egypt's 105 million people are squeezed into a narrow Nile corridor — one of the world's most densely populated and climate-precarious geographies. <strong>The Nile Delta, home to 40% of Egypt's population and most of its agriculture, faces salinisation and inundation as Mediterranean sea levels rise and Ethiopian dam construction reduces upstream flow.</strong>
+      <br><br>Economically, Egypt runs on three fragile pillars: Suez Canal revenues, tourism, and Gulf remittances. All three are vulnerable to AI-adjacent disruptions — automated shipping logistics, AI-personalised virtual tourism, and Gulf automation reducing demand for Egyptian expatriate workers. <strong>The IMF has intervened repeatedly</strong>; the currency has collapsed multiple times; bread subsidies are a political necessity that consumes fiscal space desperately needed elsewhere.
+      <br><br>Military governance prioritises stability over reform — retraining programs and digital upskilling require political openness and free information flows that the current regime systematically suppresses. Egypt's youth (60% under 30) face the worst of both worlds: a stagnant economy now and an AI-automated future with no bridge between them.`,
+      wildcards:["Nile Water Crisis","Nile Delta Flooding","Currency Collapse","Military Governance","Bread Subsidy Dependency","Youth Unemployment"]
+    },
+
+    // ── AFRICA ───────────────────────────────────────────────────────────
+    {
+      region:"Africa",
+      name:"Nigeria", flag:"🇳🇬", pop:223,
+      tagline:"Fragile State — High Exposure, Low Capacity", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:78, scoreColor:"#c05621",
+      metrics:[
+        {label:"Population",  val:"223M",  bar:16,  color:"#e53e3e"},
+        {label:"AI Risk",     val:"46%",   bar:46,  color:"#ffaa00"},
+        {label:"Governance",  val:"18/100",bar:18,  color:"#e53e3e"},
+        {label:"Skill Gap",   val:"74%",   bar:74,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"85%",   bar:85,  color:"#805ad5"},
+      ],
+      analysis:`Nigeria is Africa's most populous nation and largest economy — sitting at a dangerous intersection of forces. <strong>The formal sector is thin; most Nigerians work in informal trade, agriculture, and services</strong> — which paradoxically insulates them from immediate AI automation, but leaves them totally exposed when climate stress destroys agricultural livelihoods.
+      <br><br>The Niger Delta remains an ecological catastrophe from decades of oil extraction. The North is losing farmland to desertification at alarming rates — directly fuelling the Boko Haram insurgency and farmer-herder conflicts. <strong>An estimated 4–5 million are internally displaced</strong> before AI has contributed a single redundancy.
+      <br><br>When AI does arrive at scale in Nigerian banking and telecoms, there is no state apparatus to manage the transition. Youth population of 120M under 30 with rising expectations and falling opportunities is a volatile combination.`,
+      wildcards:["Climate Migration","Farmer-Herder Conflict","Oil Dependency","Youth Bulge","Governance Vacuum","Boko Haram Insurgency"]
+    },
+    {
+      region:"Africa",
+      name:"Ethiopia", flag:"🇪🇹", pop:126,
+      tagline:"Post-Conflict Fragility — Tigray Legacy on a Development Cliff", tagColor:"#c53030", tagBg:"#fff0f0",
+      score:77, scoreColor:"#c05621",
+      metrics:[
+        {label:"Population",  val:"126M",  bar:9,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"22%",   bar:22,  color:"#22cc55"},
+        {label:"Governance",  val:"19/100",bar:19,  color:"#e53e3e"},
+        {label:"Skill Gap",   val:"82%",   bar:82,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"91%",   bar:91,  color:"#805ad5"},
+      ],
+      analysis:`Ethiopia's crisis score is high not because of AI exposure — the country's digital penetration is too low for that to be the primary threat yet — but because of the compounding fragilities that mean any additional shock (including delayed AI disruption) will be catastrophic. <strong>The Tigray civil war (2020–2022) killed hundreds of thousands and displaced millions; reconstruction is barely begun.</strong>
+      <br><br>Climate change is devastating Ethiopia's rainfed agriculture — the backbone of the economy, employing 80% of the population. The Horn of Africa experienced its worst multi-year drought in 40 years through 2022–23, and the ITCZ rainfall patterns underpinning Ethiopian farming are becoming unpredictable.
+      <br><br><strong>When AI does reach Ethiopia at scale — likely through mobile money, platform agriculture, and outsourcing — the institutional capacity to manage even this mild disruption is essentially zero.</strong> The GERD dam dispute with Egypt and Sudan adds a regional conflict dimension that further strains governance resources.`,
+      wildcards:["Tigray Reconstruction","Drought Intensification","GERD Nile Dispute","Ethnic Federalism Tensions","Locust Swarms","Mobile Money Disruption"]
+    },
+    {
+      region:"Africa",
+      name:"South Africa", flag:"🇿🇦", pop:60,
+      tagline:"Middle Income Trap with a 33% Unemployment Floor", tagColor:"#c05621", tagBg:"#fffaf0",
+      score:69, scoreColor:"#dd6b20",
+      metrics:[
+        {label:"Population",  val:"60M",   bar:4,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"58%",   bar:58,  color:"#d69e2e"},
+        {label:"Governance",  val:"44/100",bar:44,  color:"#d69e2e"},
+        {label:"Skill Gap",   val:"66%",   bar:66,  color:"#d69e2e"},
+        {label:"Climate Exp.",val:"75%",   bar:75,  color:"#805ad5"},
+      ],
+      analysis:`South Africa enters the AI era with the world's highest official unemployment rate (~33%, rising to 46% with discouraged workers) — a level representing a permanent structural crisis predating any technology disruption. <strong>The ANC's cadre deployment policy has hollowed out state capacity over two decades</strong>; Eskom's load-shedding (18 hours of blackouts daily at peak) directly prevents digital economy participation.
+      <br><br>South Africa's financial services, mining administration, and retail sectors are genuinely AI-exposed — and Johannesburg and Cape Town have the digital infrastructure to feel this first. But the country lacks the institutional capacity to manage the transition for workers displaced from these formal sector roles, let alone the vast informal township economy.
+      <br><br><strong>Water stress is acute in the Western Cape</strong> (Cape Town came within 90 days of "Day Zero" in 2018) and intensifying. Inequality — measured by the world's highest Gini coefficient — means AI productivity gains will flow almost entirely to the already wealthy minority, with no trickle-down mechanism functioning.`,
+      wildcards:["Record Unemployment","Eskom Power Crisis","ANC Governance Failure","Inequality Extremes","Water Scarcity","Land Reform Tension"]
+    },
+
+    // ── OCEANIA ──────────────────────────────────────────────────────────
+    {
+      region:"Oceania",
+      name:"Australia", flag:"🇦🇺", pop:26,
+      tagline:"Resource Economy — AI Transition Well-Buffered", tagColor:"#276749", tagBg:"#f0fff4",
+      score:35, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"26M",   bar:2,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"84%",   bar:84,  color:"#ff8800"},
+        {label:"Governance",  val:"85/100",bar:85,  color:"#38a169"},
+        {label:"Skill Gap",   val:"24%",   bar:24,  color:"#38a169"},
+        {label:"Climate Exp.",val:"72%",   bar:72,  color:"#805ad5"},
+      ],
+      analysis:`Australia faces very high AI exposure in white-collar sectors (finance, insurance, legal, public administration) but enters the transition with strong institutional buffers. <strong>Strong institutions, a resource-export economy generating sovereign wealth, and geographic distance from immediate geopolitical disruption</strong> create favorable conditions.
+      <br><br>The real vulnerability is climate — Australia is already experiencing the climate future that the rest of the world fears. <strong>The 2019–20 Black Summer bushfires burned 18.6 million hectares</strong>, followed by catastrophic flooding in Queensland and New South Wales. The Great Barrier Reef is experiencing serial bleaching events. Climate disruption to agriculture, insurance markets, and coastal property represents a macro-economic risk larger than AI displacement in isolation.
+      <br><br>Australia's "she'll be right" cultural attitude toward long-term planning — combined with political cycling through prime ministers — has historically prevented sustained investment in the reskilling infrastructure the AI transition requires. The mining sector (which employs relatively few but generates enormous revenue) is already highly automated. <strong>The question is whether that revenue is invested in future-proofing the rest of the economy.</strong>`,
+      wildcards:["Bushfire Frequency","Reef Bleaching","Political Cycling","Housing Affordability","China Trade Dependency","Flood Insurance Crisis"]
+    },
+    {
+      region:"Oceania",
+      name:"New Zealand", flag:"🇳🇿", pop:5,
+      tagline:"Small and Nimble — Climate Haven Candidate", tagColor:"#276749", tagBg:"#f0fff4",
+      score:24, scoreColor:"#38a169",
+      metrics:[
+        {label:"Population",  val:"5M",    bar:1,   color:"#e53e3e"},
+        {label:"AI Risk",     val:"79%",   bar:79,  color:"#ff8800"},
+        {label:"Governance",  val:"90/100",bar:90,  color:"#38a169"},
+        {label:"Skill Gap",   val:"19%",   bar:19,  color:"#38a169"},
+        {label:"Climate Exp.",val:"35%",   bar:35,  color:"#805ad5"},
+      ],
+      analysis:`New Zealand consistently ranks among the world's best-governed nations — low corruption, high social trust, and a political culture that has demonstrated capacity for radical, fast policy pivots (it was the first country to give women the vote, first to decriminalise cannabis nationally, rapid COVID response). <strong>This adaptability is exactly what the AI transition demands.</strong>
+      <br><br>New Zealand's small population (~5M) means AI displacement is modest in absolute terms, and the country's agricultural export economy (dairy, kiwifruit, wine) is less AI-exposed than finance-heavy peers. The tech sector in Auckland and Wellington is growing but not yet large enough to absorb significant white-collar displacement.
+      <br><br><strong>New Zealand is emerging as a "climate haven" consideration</strong> — stable climate, water security, food security, and geopolitical neutrality are attracting wealthy climate migrants. This is a double-edged sword: it drives housing costs skyward (already among the world's least affordable relative to incomes) and could create social tension between established Māori communities and wealthy arrivals.`,
+      wildcards:["Housing Affordability Extreme","Climate Haven Migration Pressure","Māori Land Rights","Agricultural Trade Exposure","Small Market Limitations"]
+    },
+  ];
+
+  // Sort by score descending
+  COUNTRIES_POP.sort((a,b) => b.score - a.score);
+
+  const regions = [...new Set(COUNTRIES_POP.map(c=>c.region))];
+  const totalPop = COUNTRIES_POP.reduce((s,c)=>s+c.pop,0);
+
+  // Build region filter buttons
+  const regionButtons = ['All', ...regions].map(r =>
+    `<button onclick="filterPopRegion('${r}')" id="preg-${r.replace(/[^a-z]/gi,'')}" class="preg-btn${r==='All'?' preg-active':''}">${r}</button>`
+  ).join('');
+
+  const cardHtml = COUNTRIES_POP.map((c,i)=>`
+    <div class="country-card" data-region="${c.region}">
+      <div class="country-card-header">
+        <div class="country-flag-big">${c.flag}</div>
+        <div class="country-title">
+          <div class="country-name-h">${c.name}</div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8898aa;margin-bottom:3px;">${c.region}</div>
+          <div class="country-tagline" style="color:${c.tagColor};">${c.tagline}</div>
+          <div class="wildcards">
+            ${c.wildcards.map(w=>`<span class="risk-tag" style="background:${c.tagBg};color:${c.tagColor};border:1px solid ${c.tagColor}30;">${w}</span>`).join('')}
+          </div>
+        </div>
+        <div class="country-score-big">
+          <div class="crisis-score" style="color:${c.scoreColor};">${c.score}</div>
+          <div class="crisis-label">Crisis Score</div>
+          <div style="font-size:9px;color:#8898aa;margin-top:4px;">#${i+1} of ${COUNTRIES_POP.length}</div>
+        </div>
+      </div>
+      <div class="country-metrics">
+        ${c.metrics.map(m=>`
+        <div class="metric-cell">
+          <div class="metric-val" style="color:${m.color};">${m.val}</div>
+          <div class="metric-lbl">${m.label}</div>
+          <div class="metric-bar"><div class="metric-bar-fill" style="width:${m.bar}%;background:${m.color};opacity:0.7;"></div></div>
+        </div>`).join('')}
+      </div>
+      <div class="country-analysis">${c.analysis}</div>
+    </div>`).join('');
+
+  const html = `
+    <style>
+      .preg-btn { background:#fff; border:1px solid #e2e8f0; border-radius:20px; padding:5px 14px; font-size:12px; font-weight:600; color:#718096; cursor:pointer; transition:all 0.15s; font-family:'DM Sans',sans-serif; }
+      .preg-btn:hover { border-color:#3b6ef5; color:#3b6ef5; }
+      .preg-active { background:#3b6ef5!important; color:#fff!important; border-color:#3b6ef5!important; }
+    </style>
+    <div style="max-width:960px;margin:0 auto;">
+      <div style="margin-bottom:24px;">
+        <div class="pop-section-title">Population × AI × Governance: Who Bears the True Cost?</div>
+        <div class="pop-section-sub">
+          ${COUNTRIES_POP.length} nations ranked by compound Crisis Score — combining population scale, AI displacement exposure,
+          governance capacity, skill gaps, and climate vulnerability. Use region filters to focus.
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 18px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,0.05);">
+            <div style="font-size:22px;font-weight:700;color:#e53e3e;">${COUNTRIES_POP.filter(c=>c.score>=70).length}</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:#8898aa;text-transform:uppercase;">Critical Nations (70+)</div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 18px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,0.05);">
+            <div style="font-size:22px;font-weight:700;color:#c05621;">${COUNTRIES_POP.filter(c=>c.score>=50&&c.score<70).length}</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:#8898aa;text-transform:uppercase;">High Risk (50–69)</div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 18px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,0.05);">
+            <div style="font-size:22px;font-weight:700;color:#38a169;">${COUNTRIES_POP.filter(c=>c.score<50).length}</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:#8898aa;text-transform:uppercase;">Manageable (&lt;50)</div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 18px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,0.05);">
+            <div style="font-size:22px;font-weight:700;color:#3b6ef5;">${totalPop.toLocaleString()}M</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:#8898aa;text-transform:uppercase;">Combined Population</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+          ${regionButtons}
+        </div>
+      </div>
+
+      <div id="pop-cards">${cardHtml}</div>
+
+      <div style="background:#1a2340;border-radius:14px;padding:24px 28px;margin-top:8px;color:#c8d8f0;" id="pop-conclusion">
+        <div style="font-family:'DM Serif Display',serif;font-size:18px;color:#fff;margin-bottom:12px;">The Bottom Line</div>
+        <div style="font-size:13px;line-height:1.85;color:#a0b8d8;">
+          The countries that will suffer most are not those with the highest AI adoption — they are the ones where
+          <strong style="color:#fff;">population scale meets governance failure meets climate exposure.</strong>
+          India stands alone in the severity of this convergence. The Philippines and Bangladesh face sectoral obliteration on top of climate catastrophe.
+          Nigeria, Ethiopia, and South Africa face state fragility before AI has even fully arrived.
+          <br><br>
+          Saudi Arabia and the Gulf states face a unique paradox: wealth sufficient to manage any transition, but climate conditions that may make the geography uninhabitable regardless of economic success.
+          Mexico sits at the crossroads of nearshoring opportunity and governance failure.
+          Europe's north (Sweden, Germany, France) has the institutional capacity to manage; Europe's south (Italy, Spain) and east (Poland) face the same disruption with fewer tools.
+          <br><br>
+          <strong style="color:#fff;">The governance gap between nations is, ultimately, the displacement gap.</strong>
+          AI arrives into existing inequalities and amplifies them. The question is never just "how much AI?" — it is always "how much state?"
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('pop-tab').innerHTML = html;
+}
+
+window.filterPopRegion = function(region) {
+  document.querySelectorAll('.preg-btn').forEach(b=>b.classList.remove('preg-active'));
+  const safeId = region.replace(/[^a-z]/gi,'');
+  const btn = document.getElementById('preg-'+safeId);
+  if(btn) btn.classList.add('preg-active');
+  document.querySelectorAll('#pop-cards .country-card').forEach(card=>{
+    card.style.display = (region==='All' || card.dataset.region===region) ? 'block' : 'none';
+  });
+};
+// Init
+updateTopStats();
+renderLeftPanel();
+renderRightPanel();
+</script>
+</body>
+</html>
