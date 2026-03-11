@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Earth Workforce Evolution 2025-2035</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:Arial,sans-serif;background:#020a14;color:#dceeff;overflow:hidden}
+input[type=range]{-webkit-appearance:none;height:3px;border-radius:2px;background:rgba(99,179,237,0.3);outline:none;width:100%;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#63b3ed;box-shadow:0 0 6px rgba(99,179,237,0.6)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(99,179,237,0.25);border-radius:2px}
+button{font-family:inherit;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app" style="height:100vh;display:flex;flex-direction:column;overflow:hidden"></div>
+<script>
+// STATE
+var YEAR=2025,TAB="globe",SEL=null,HOV=null,PLAYING=false,PTIMER=null;
+var JOB_TAB="dying",JOB_OPEN=-1,NATION_OPEN="",REG_OPEN="";
+var SEL_COUNTRY=null,HOV_COUNTRY=null,SEARCH_Q="";
+var GRY=0.35,GRX=0.08,GAUTO=true,GDRAG=false,GLX=0,GLY=0,GMOVED=false;
+var ATIMER=null,RAF=null,CVS=null;
+
+function rc(v){return v>=85?"#fc8181":v>=70?"#f6ad55":v>=55?"#f6e05e":v>=40?"#68d391":"#48bb78";}
+function rl(v){return v>=85?"Critical":v>=70?"Severe":v>=55?"High":v>=40?"Moderate":"Low";}
+
+// GEO
+var GEO=[
+  {id:"namerica",label:"North America",lx:40,ly:-98,fill:"#2d6a2d",pts:[[71,-140],[72,-100],[68,-60],[58,-55],[47,-53],[41,-66],[25,-77],[8,-82],[22,-106],[30,-115],[37,-122],[48,-124],[60,-135],[71,-140]]},
+  {id:"samerica",label:"South America",lx:-14,ly:-56,fill:"#2d6a2d",pts:[[12,-71],[8,-60],[3,-50],[-5,-35],[-10,-37],[-23,-43],[-34,-53],[-52,-68],[-55,-64],[-40,-62],[-16,-75],[-5,-80],[8,-77],[12,-71]]},
+  {id:"europe",label:"Europe",lx:52,ly:13,fill:"#2d6040",pts:[[70,20],[65,14],[58,6],[50,-2],[44,-8],[36,-8],[37,14],[42,28],[47,34],[55,37],[65,14],[70,20]]},
+  {id:"africa",label:"Africa",lx:4,ly:20,fill:"#3a6e28",pts:[[37,-5],[37,12],[22,37],[12,44],[-2,40],[-22,35],[-35,20],[-35,-17],[0,-18],[22,-14],[30,-10],[37,-5]]},
+  {id:"asia",label:"Asia",lx:50,ly:90,fill:"#286040",pts:[[70,25],[55,37],[55,60],[40,50],[22,58],[15,43],[37,28],[47,34],[55,80],[8,76],[8,80],[20,90],[10,100],[1,103],[22,115],[45,135],[55,135],[68,100],[70,25]]},
+  {id:"india",label:"South Asia",lx:22,ly:80,fill:"#347048",pts:[[28,62],[20,60],[8,76],[8,80],[20,87],[28,90],[28,62]]},
+  {id:"seasia",label:"SE Asia",lx:5,ly:108,fill:"#286844",pts:[[22,98],[5,100],[1,103],[4,115],[12,109],[22,106],[22,98]]},
+  {id:"australia",label:"Australia",lx:-26,ly:135,fill:"#6b7c30",pts:[[-10,130],[-12,136],[-12,142],[-22,150],[-38,146],[-38,116],[-25,113],[-18,122],[-10,130]]}
+];
+var CITIES=[{n:"New York",la:40.7,lo:-74},{n:"London",la:51.5,lo:-0.1},{n:"Mumbai",la:19.1,lo:72.9},{n:"Tokyo",la:35.7,lo:139.7},{n:"Lagos",la:6.5,lo:3.4},{n:"Sao Paulo",la:-23.5,lo:-46.6},{n:"Dubai",la:25.2,lo:55.3},{n:"Sydney",la:-33.9,lo:151.2},{n:"Manila",la:14.6,lo:120.9},{n:"Delhi",la:28.6,lo:77.2}];
+var STARS=[];for(var si=0;si<200;si++){STARS.push({x:(Math.sin(si*137.508)*0.5+0.5),y:(Math.sin(si*73.1+1.7)*0.5+0.5),r:si%7===0?1.4:si%3===0?0.8:0.45,a:(Math.sin(si*53.3)*0.35+0.65)*0.35});}
+
+function proj(lat,lng,ry,rx,R){
+  var phi=(90-lat)*Math.PI/180,th=(lng+180)*Math.PI/180;
+  var x=Math.sin(phi)*Math.cos(th),y=Math.cos(phi),z=Math.sin(phi)*Math.sin(th);
+  var cy2=Math.cos(ry),sy=Math.sin(ry),tx=x;x=tx*cy2-z*sy;z=tx*sy+z*cy2;
+  var cx2=Math.cos(rx),sx=Math.sin(rx),ty=y;y=ty*cx2-z*sx;z=ty*sx+z*cx2;
+  return {sx:x*R,sy:-y*R,z:z,vis:z>0};
+}
+var REG={
+  namerica:{name:"North America",la:42,lo:-96,col:"#63b3ed",sectors:["Finance","Gig/Rideshare","Healthcare Admin","Construction Mgmt","Legal Ops"],y:{2025:{risk:62,d:1.2,n:0.3,a:38},2026:{risk:71,d:1.8,n:0.5,a:52},2027:{risk:79,d:2.4,n:0.8,a:64},2028:{risk:85,d:2.9,n:1.1,a:74},2029:{risk:89,d:3.3,n:1.5,a:82},2030:{risk:91,d:3.6,n:2.0,a:87},2031:{risk:93,d:3.8,n:2.4,a:90},2032:{risk:94,d:3.9,n:2.8,a:92},2033:{risk:95,d:4.0,n:3.2,a:94},2034:{risk:96,d:4.0,n:3.5,a:95},2035:{risk:96,d:3.9,n:3.8,a:96}}},
+  europe:{name:"Europe",la:50,lo:15,col:"#b794f4",sectors:["Banking","Public Sector","Freelance Tech","Retail Ops","Construction"],y:{2025:{risk:48,d:0.7,n:0.2,a:28},2026:{risk:57,d:1.1,n:0.4,a:38},2027:{risk:65,d:1.5,n:0.6,a:49},2028:{risk:72,d:1.9,n:0.8,a:59},2029:{risk:78,d:2.3,n:1.1,a:68},2030:{risk:82,d:2.6,n:1.5,a:75},2031:{risk:85,d:2.8,n:1.9,a:80},2032:{risk:87,d:2.9,n:2.2,a:84},2033:{risk:89,d:2.9,n:2.5,a:87},2034:{risk:90,d:2.9,n:2.7,a:89},2035:{risk:91,d:2.8,n:2.8,a:91}}},
+  southasia:{name:"South Asia",la:20,lo:78,col:"#fc8181",sectors:["BPO/KPO","Data Entry","Construction Labour","Gig Delivery","Customer Support"],y:{2025:{risk:78,d:1.8,n:0.2,a:35},2026:{risk:84,d:2.6,n:0.4,a:51},2027:{risk:88,d:3.3,n:0.7,a:64},2028:{risk:91,d:3.9,n:1.0,a:74},2029:{risk:93,d:4.4,n:1.4,a:81},2030:{risk:95,d:4.8,n:1.9,a:86},2031:{risk:96,d:5.0,n:2.3,a:89},2032:{risk:97,d:5.1,n:2.7,a:92},2033:{risk:97,d:5.1,n:3.1,a:93},2034:{risk:98,d:5.0,n:3.4,a:94},2035:{risk:98,d:4.8,n:3.6,a:95}}},
+  seasia:{name:"SE Asia",la:10,lo:108,col:"#f6ad55",sectors:["Shared Services","Gig Delivery","Finance Ops","Freelance Dev","Retail"],y:{2025:{risk:52,d:0.4,n:0.1,a:25},2026:{risk:61,d:0.7,n:0.2,a:37},2027:{risk:69,d:1.0,n:0.4,a:49},2028:{risk:75,d:1.3,n:0.6,a:58},2029:{risk:80,d:1.6,n:0.8,a:66},2030:{risk:84,d:1.9,n:1.1,a:72},2031:{risk:87,d:2.1,n:1.4,a:77},2032:{risk:89,d:2.2,n:1.6,a:81},2033:{risk:91,d:2.3,n:1.9,a:84},2034:{risk:92,d:2.3,n:2.1,a:86},2035:{risk:92,d:2.2,n:2.2,a:87}}},
+  eastasia:{name:"East Asia",la:35,lo:118,col:"#f6e05e",sectors:["Manufacturing Admin","Construction","Retail Ops","Gov Services","Space Industry"],y:{2025:{risk:65,d:1.1,n:0.4,a:42},2026:{risk:72,d:1.5,n:0.6,a:54},2027:{risk:78,d:1.9,n:0.8,a:65},2028:{risk:83,d:2.3,n:1.0,a:73},2029:{risk:87,d:2.6,n:1.3,a:79},2030:{risk:90,d:2.9,n:1.7,a:84},2031:{risk:91,d:3.0,n:2.0,a:87},2032:{risk:92,d:3.1,n:2.3,a:89},2033:{risk:93,d:3.1,n:2.6,a:91},2034:{risk:94,d:3.0,n:2.8,a:92},2035:{risk:94,d:2.9,n:2.9,a:93}}},
+  latam:{name:"Latin America",la:-15,lo:-58,col:"#68d391",sectors:["Banking","Gig Economy","Construction","Gov Admin","Agritech"],y:{2025:{risk:34,d:0.2,n:0.1,a:18},2026:{risk:42,d:0.4,n:0.1,a:27},2027:{risk:51,d:0.6,n:0.2,a:37},2028:{risk:60,d:0.9,n:0.4,a:47},2029:{risk:67,d:1.2,n:0.5,a:55},2030:{risk:72,d:1.4,n:0.7,a:62},2031:{risk:76,d:1.6,n:0.9,a:67},2032:{risk:80,d:1.7,n:1.1,a:71},2033:{risk:82,d:1.8,n:1.3,a:75},2034:{risk:84,d:1.8,n:1.5,a:77},2035:{risk:85,d:1.8,n:1.6,a:79}}},
+  mideast:{name:"Middle East",la:25,lo:46,col:"#4fd1c5",sectors:["Banking","Oil and Gas Admin","Government","Space","Construction"],y:{2025:{risk:44,d:0.15,n:0.05,a:22},2026:{risk:53,d:0.25,n:0.09,a:33},2027:{risk:61,d:0.35,n:0.13,a:44},2028:{risk:68,d:0.45,n:0.19,a:53},2029:{risk:74,d:0.55,n:0.26,a:61},2030:{risk:79,d:0.65,n:0.35,a:68},2031:{risk:82,d:0.72,n:0.42,a:73},2032:{risk:84,d:0.77,n:0.49,a:77},2033:{risk:86,d:0.80,n:0.55,a:80},2034:{risk:87,d:0.82,n:0.60,a:82},2035:{risk:88,d:0.82,n:0.64,a:84}}},
+  africa:{name:"Africa",la:5,lo:20,col:"#f687b3",sectors:["Mobile Money","Gig Startups","Construction","Telecom","Banking"],y:{2025:{risk:18,d:0.05,n:0.02,a:10},2026:{risk:24,d:0.09,n:0.04,a:16},2027:{risk:31,d:0.14,n:0.07,a:23},2028:{risk:40,d:0.21,n:0.10,a:32},2029:{risk:49,d:0.30,n:0.14,a:41},2030:{risk:56,d:0.40,n:0.19,a:49},2031:{risk:62,d:0.50,n:0.25,a:56},2032:{risk:67,d:0.60,n:0.31,a:62},2033:{risk:71,d:0.68,n:0.38,a:67},2034:{risk:74,d:0.74,n:0.45,a:71},2035:{risk:77,d:0.79,n:0.52,a:74}}},
+  oceania:{name:"Oceania",la:-25,lo:135,col:"#9ae6b4",sectors:["Finance","Mining Tech","Healthcare","Construction","Space Ops"],y:{2025:{risk:60,d:0.1,n:0.03,a:40},2026:{risk:69,d:0.14,n:0.05,a:52},2027:{risk:76,d:0.17,n:0.07,a:62},2028:{risk:82,d:0.20,n:0.10,a:71},2029:{risk:86,d:0.23,n:0.13,a:78},2030:{risk:89,d:0.25,n:0.16,a:83},2031:{risk:91,d:0.26,n:0.19,a:86},2032:{risk:92,d:0.27,n:0.21,a:88},2033:{risk:93,d:0.27,n:0.23,a:90},2034:{risk:93,d:0.27,n:0.24,a:91},2035:{risk:94,d:0.26,n:0.25,a:92}}}
+};
+// ALL COUNTRIES - 161 nations with lat/lon + AI displacement risk 2025-2035
+// Risk = automation exposure based on: digital infra, gig economy, BPO, construction workforce, governance
+function mkY(base){
+  var cap=Math.min(98,base+34);
+  var y={};
+  var steps=[0,0.18,0.32,0.44,0.54,0.62,0.68,0.74,0.79,0.83,0.87];
+  [2025,2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].forEach(function(yr,i){y[yr]=Math.round(base+(cap-base)*steps[i]);});
+  return y;
+}
+var ALL_COUNTRIES=[
+{n:"United States",la:38,lo:-97,reg:"namerica",y:mkY(65),pop:"335M",gdp:"$25.5T",key:"Gig economy 59M workers; rideshare/delivery automation wave; space economy creating 400K+ jobs"},
+{n:"Canada",la:56,lo:-96,reg:"namerica",y:mkY(58),pop:"38M",gdp:"$2.1T",key:"Finance and back-office automation; strong apprenticeship buffer; resource sector AI adoption"},
+{n:"Mexico",la:23,lo:-102,reg:"namerica",y:mkY(42),pop:"128M",gdp:"$1.3T",key:"Manufacturing admin and call centres; nearshore BPO growth threatened; construction labour risk"},
+{n:"Guatemala",la:15.5,lo:-90.3,reg:"namerica",y:mkY(22),pop:"17M",gdp:"$85B",key:"Remittance economy; agricultural gig work; limited digital infrastructure delays impact"},
+{n:"Honduras",la:15,lo:-86.5,reg:"namerica",y:mkY(18),pop:"10M",gdp:"$31B",key:"Textile manufacturing admin; limited AI exposure currently; governance constraints"},
+{n:"El Salvador",la:13.8,lo:-88.9,reg:"namerica",y:mkY(20),pop:"6M",gdp:"$32B",key:"Remittances from US; bitcoin economy experiment; low formal gig penetration"},
+{n:"Costa Rica",la:9.7,lo:-83.8,reg:"namerica",y:mkY(38),pop:"5M",gdp:"$64B",key:"Growing tech services sector; Intel and medical devices; BPO exposure increasing"},
+{n:"Panama",la:8.9,lo:-79.5,reg:"namerica",y:mkY(35),pop:"4M",gdp:"$67B",key:"Financial services hub; logistics and canal administration; growing tech sector"},
+{n:"Nicaragua",la:12.8,lo:-85.2,reg:"namerica",y:mkY(12),pop:"7M",gdp:"$15B",key:"Agricultural economy; minimal digital gig exposure; political isolation limits tech"},
+{n:"Cuba",la:21.5,lo:-80,reg:"namerica",y:mkY(8),pop:"11M",gdp:"$107B",key:"State-controlled economy; limited internet access; isolated from global AI platforms"},
+{n:"Jamaica",la:18,lo:-77.3,reg:"namerica",y:mkY(28),pop:"3M",gdp:"$16B",key:"Tourism and BPO; growing call centre sector; remittance dependency"},
+{n:"Haiti",la:18.9,lo:-72.3,reg:"namerica",y:mkY(8),pop:"11M",gdp:"$20B",key:"Subsistence economy; humanitarian crisis limits digital transition; minimal formal sector"},
+{n:"Dominican Republic",la:18.7,lo:-70.2,reg:"namerica",y:mkY(30),pop:"11M",gdp:"$95B",key:"Tourism, manufacturing, growing BPO sector; remittances; moderate digital growth"},
+{n:"Trinidad and Tobago",la:10.7,lo:-61.2,reg:"namerica",y:mkY(32),pop:"1.4M",gdp:"$22B",key:"Energy sector administration; financial services; small gig economy"},
+{n:"Brazil",la:-14,lo:-51,reg:"latam",y:mkY(38),pop:"215M",gdp:"$2.1T",key:"Largest gig economy in LatAm; Rappi/iFood delivery automation; agritech and fintech growing"},
+{n:"Argentina",la:-34,lo:-64,reg:"latam",y:mkY(35),pop:"46M",gdp:"$630B",key:"Strong freelance tech sector; economic instability drives platform work; AI consulting growing"},
+{n:"Chile",la:-35,lo:-71,reg:"latam",y:mkY(36),pop:"19M",gdp:"$317B",key:"Most digitalised LatAm economy; fintech hub; mining automation; strong institutional capacity"},
+{n:"Colombia",la:4,lo:-72,reg:"latam",y:mkY(30),pop:"52M",gdp:"$315B",key:"Medellin tech hub; growing BPO sector; delivery gig economy expanding; coffee agritech"},
+{n:"Peru",la:-10,lo:-75,reg:"latam",y:mkY(25),pop:"33M",gdp:"$242B",key:"Mining admin automation; informal economy buffer; growing Lima tech scene"},
+{n:"Venezuela",la:8,lo:-66,reg:"latam",y:mkY(12),pop:"28M",gdp:"$70B",key:"Economic collapse limits digital transition; crypto gig work; brain drain ongoing"},
+{n:"Ecuador",la:-2,lo:-77.5,reg:"latam",y:mkY(22),pop:"18M",gdp:"$115B",key:"Oil admin automation; agriculture sector; Quito growing tech scene; dollarised economy"},
+{n:"Bolivia",la:-17,lo:-65,reg:"latam",y:mkY(14),pop:"12M",gdp:"$43B",key:"Mining and agriculture dominant; low digital penetration; informal economy majority"},
+{n:"Paraguay",la:-23,lo:-58,reg:"latam",y:mkY(16),pop:"7M",gdp:"$42B",key:"Agricultural economy; informal sector dominant; limited formal gig economy"},
+{n:"Uruguay",la:-33,lo:-56,reg:"latam",y:mkY(40),pop:"3.5M",gdp:"$77B",key:"Most developed digital infrastructure in LatAm; strong social safety net; tech exports"},
+{n:"Guyana",la:5,lo:-59,reg:"latam",y:mkY(18),pop:"0.8M",gdp:"$17B",key:"Oil boom economy; very small formal sector; developing digital infrastructure"},
+{n:"Suriname",la:4,lo:-56,reg:"latam",y:mkY(12),pop:"0.6M",gdp:"$4B",key:"Small resource economy; limited formal employment; minimal AI exposure"},
+{n:"United Kingdom",la:54,lo:-2,reg:"europe",y:mkY(58),pop:"67M",gdp:"$3.1T",key:"59M gig workers; financial services AI; NHS automation; strong fintech sector"},
+{n:"Germany",la:51,lo:10,reg:"europe",y:mkY(55),pop:"84M",gdp:"$4.1T",key:"Dual apprenticeship system; Kurzarbeit safety net; auto industry transformation"},
+{n:"France",la:46,lo:2,reg:"europe",y:mkY(50),pop:"68M",gdp:"$2.9T",key:"35hr week buffer; strong unions; public sector AI; luxury and tourism AI-resistant"},
+{n:"Italy",la:42,lo:12,reg:"europe",y:mkY(46),pop:"60M",gdp:"$2.2T",key:"SME economy partially insulated; ageing workforce; south-north digital divide"},
+{n:"Spain",la:40,lo:-4,reg:"europe",y:mkY(44),pop:"47M",gdp:"$1.5T",key:"Tourism sector AI-resistant; high youth unemployment; gig platform regulation"},
+{n:"Netherlands",la:52,lo:5,reg:"europe",y:mkY(54),pop:"17M",gdp:"$1.1T",key:"Logistics hub automation; high digital skills; strong social safety net"},
+{n:"Belgium",la:50.8,lo:4.5,reg:"europe",y:mkY(50),pop:"11.6M",gdp:"$620B",key:"EU institutions create governance jobs; multilingual BPO sector threatened"},
+{n:"Switzerland",la:47,lo:8,reg:"europe",y:mkY(52),pop:"8.7M",gdp:"$800B",key:"Financial services AI; pharma admin automation; very high wages create buffer"},
+{n:"Austria",la:47.5,lo:14,reg:"europe",y:mkY(48),pop:"9M",gdp:"$480B",key:"Tourism and manufacturing; strong vocational system; Vienna growing tech hub"},
+{n:"Sweden",la:62,lo:15,reg:"europe",y:mkY(52),pop:"10.5M",gdp:"$570B",key:"High tech adoption; strong social safety net; Spotify and gaming sector; green tech jobs"},
+{n:"Norway",la:64,lo:13,reg:"europe",y:mkY(48),pop:"5.4M",gdp:"$580B",key:"Oil fund provides extraordinary buffer; fishing and energy sector automation"},
+{n:"Denmark",la:56,lo:10,reg:"europe",y:mkY(50),pop:"5.9M",gdp:"$400B",key:"Flexicurity model world-leading for transitions; Maersk logistics automation; cleantech"},
+{n:"Finland",la:64,lo:26,reg:"europe",y:mkY(50),pop:"5.5M",gdp:"$300B",key:"Nokia reinvention precedent; strong digital education; gaming and tech sector growing"},
+{n:"Poland",la:52,lo:19,reg:"europe",y:mkY(44),pop:"38M",gdp:"$700B",key:"Nearshore BPO hub threatened; strong IT sector as buffer; EU funds transition capacity"},
+{n:"Czech Republic",la:50,lo:15.5,reg:"europe",y:mkY(46),pop:"10.9M",gdp:"$290B",key:"Manufacturing administration; Prague tech hub; auto industry admin exposure"},
+{n:"Hungary",la:47.2,lo:19,reg:"europe",y:mkY(40),pop:"9.7M",gdp:"$185B",key:"Manufacturing admin; limited social safety net; Budapest growing tech scene"},
+{n:"Romania",la:46,lo:25,reg:"europe",y:mkY(36),pop:"19M",gdp:"$300B",key:"IT outsourcing growing; semi-skilled factory work at risk; EU accession buffer"},
+{n:"Portugal",la:39.5,lo:-8,reg:"europe",y:mkY(44),pop:"10.3M",gdp:"$255B",key:"Lisbon tech hub; tourism AI-resistant; NHR tax regime attracts remote workers"},
+{n:"Greece",la:39,lo:22,reg:"europe",y:mkY(38),pop:"10.4M",gdp:"$220B",key:"Tourism dominant and AI-resistant; shipping admin automation; economic recovery fragile"},
+{n:"Ireland",la:53,lo:-8,reg:"europe",y:mkY(55),pop:"5.1M",gdp:"$525B",key:"Tech giant EMEA HQs; financial services; high exposure but high capacity to transition"},
+{n:"Ukraine",la:49,lo:32,reg:"europe",y:mkY(32),pop:"43M",gdp:"$160B",key:"IT outsourcing; war disruption; Diia digital govt model; reconstruction AI opportunity"},
+{n:"Turkey",la:39,lo:35,reg:"europe",y:mkY(38),pop:"85M",gdp:"$906B",key:"Garment industry automation; growing tech sector; Istanbul fintech; high youth population"},
+{n:"Serbia",la:44,lo:21,reg:"europe",y:mkY(34),pop:"6.8M",gdp:"$62B",key:"IT outsourcing growing; manufacturing admin; Belgrade tech scene expanding"},
+{n:"Croatia",la:45.1,lo:15.2,reg:"europe",y:mkY(36),pop:"3.9M",gdp:"$67B",key:"Tourism and manufacturing; EU membership provides transition support; growing tech"},
+{n:"Slovakia",la:48.7,lo:19.7,reg:"europe",y:mkY(40),pop:"5.5M",gdp:"$120B",key:"Auto manufacturing admin; IT sector growing; EU structural funds support transition"},
+{n:"Bulgaria",la:42.7,lo:25.5,reg:"europe",y:mkY(34),pop:"6.5M",gdp:"$80B",key:"IT outsourcing; lowest wages in EU create pressure; Sofia tech hub growing"},
+{n:"Lithuania",la:55.2,lo:24,reg:"europe",y:mkY(44),pop:"2.8M",gdp:"$64B",key:"Fintech hub; strong digital govt; Baltic Tiger economy; NATO-adjacent defence tech"},
+{n:"Latvia",la:57,lo:25,reg:"europe",y:mkY(40),pop:"1.8M",gdp:"$37B",key:"IT sector; logistics hub; declining population reduces displacement scale"},
+{n:"Estonia",la:59,lo:25,reg:"europe",y:mkY(46),pop:"1.3M",gdp:"$35B",key:"World's most digital government; e-Residency; Skype origin; strong digital transition capacity"},
+{n:"Iceland",la:65,lo:-18,reg:"europe",y:mkY(44),pop:"0.37M",gdp:"$25B",key:"Tourism and fishing; very high digital skills and social safety net"},
+{n:"Slovenia",la:46.1,lo:14.9,reg:"europe",y:mkY(42),pop:"2.1M",gdp:"$62B",key:"Manufacturing and tourism; EU member; Ljubljana growing tech scene"},
+{n:"North Macedonia",la:41.6,lo:21.7,reg:"europe",y:mkY(28),pop:"2.1M",gdp:"$14B",key:"Limited digital economy; IT outsourcing embryonic; transition to EU track"},
+{n:"Albania",la:41.3,lo:20.2,reg:"europe",y:mkY(22),pop:"2.8M",gdp:"$18B",key:"Remittances dominant; tourism growing; limited formal digital sector"},
+{n:"Bosnia",la:44,lo:17.5,reg:"europe",y:mkY(22),pop:"3.3M",gdp:"$24B",key:"Post-conflict reconstruction; IT sector emerging; political fragmentation slows transition"},
+{n:"Moldova",la:47,lo:29,reg:"europe",y:mkY(20),pop:"2.6M",gdp:"$13B",key:"Remittances and agriculture; IT sector growing rapidly; EU candidate status"},
+{n:"Belarus",la:53.7,lo:28,reg:"europe",y:mkY(28),pop:"9.4M",gdp:"$65B",key:"State-controlled economy; IT sector brain drain since 2020; manufacturing admin"},
+{n:"Cyprus",la:35.1,lo:33.4,reg:"europe",y:mkY(42),pop:"1.2M",gdp:"$28B",key:"Financial services and tourism; EU member; offshore company admin automation risk"},
+{n:"Malta",la:35.9,lo:14.5,reg:"europe",y:mkY(44),pop:"0.53M",gdp:"$18B",key:"iGaming and fintech hub; financial admin automation; English-speaking BPO"},
+{n:"Luxembourg",la:49.8,lo:6.1,reg:"europe",y:mkY(52),pop:"0.64M",gdp:"$85B",key:"Financial centre with extraordinary buffers; EU institutions; space industry investment"},
+{n:"India",la:20,lo:78,reg:"southasia",y:mkY(82),pop:"1.43B",gdp:"$3.4T",key:"25M BPO workers; 60M construction labourers; data entry wave; space agency growth; maximum exposure"},
+{n:"Bangladesh",la:23.7,lo:90.4,reg:"southasia",y:mkY(68),pop:"173M",gdp:"$460B",key:"4M garment workers; sea level rise; construction labour; weakest safety net globally"},
+{n:"Pakistan",la:30,lo:70,reg:"southasia",y:mkY(52),pop:"231M",gdp:"$376B",key:"Freelance tech sector; political instability slows transition; growing IT exports"},
+{n:"Sri Lanka",la:7.9,lo:80.8,reg:"southasia",y:mkY(55),pop:"22M",gdp:"$84B",key:"BPO and IT sector; garment industry exposure; post-crisis recovery; strong English skills"},
+{n:"Nepal",la:28,lo:84,reg:"southasia",y:mkY(22),pop:"30M",gdp:"$40B",key:"Remittance economy 27% GDP; construction labour in Gulf threatened; tourism AI-resistant"},
+{n:"Afghanistan",la:33,lo:65,reg:"southasia",y:mkY(6),pop:"42M",gdp:"$14B",key:"Humanitarian crisis; minimal formal economy; conflict prevents AI transition planning"},
+{n:"Bhutan",la:27.5,lo:90.4,reg:"southasia",y:mkY(16),pop:"0.77M",gdp:"$3B",key:"Tourism-driven economy; GNH framework; hydropower; small formal sector"},
+{n:"Maldives",la:3.2,lo:73.2,reg:"southasia",y:mkY(26),pop:"0.53M",gdp:"$6B",key:"Tourism almost entirely; climate migration risk; financial admin automation"},
+{n:"Singapore",la:1.35,lo:103.8,reg:"seasia",y:mkY(68),pop:"5.8M",gdp:"$467B",key:"Global financial hub; SkillsFuture national transition programme; AI research investment"},
+{n:"Philippines",la:13,lo:122,reg:"seasia",y:mkY(72),pop:"115M",gdp:"$404B",key:"1.3M BPO workers 9% GDP; typhoon risk; remittances; existential BPO threat"},
+{n:"Malaysia",la:4,lo:109,reg:"seasia",y:mkY(58),pop:"33M",gdp:"$440B",key:"Penang semiconductor supply chain; Kuala Lumpur shared services threatened; strong institutions"},
+{n:"Indonesia",la:-2,lo:118,reg:"seasia",y:mkY(40),pop:"277M",gdp:"$1.4T",key:"Go-Jek gig economy 2M drivers; 100M informal workers; Jokowi digital push"},
+{n:"Thailand",la:15,lo:101,reg:"seasia",y:mkY(48),pop:"72M",gdp:"$544B",key:"Manufacturing admin and tourism; 4.0 Industry policy; Bangkok fintech; EV assembly"},
+{n:"Vietnam",la:16,lo:106,reg:"seasia",y:mkY(46),pop:"98M",gdp:"$408B",key:"Manufacturing boom; Ho Chi Minh City BPO; strong growth creates buffer"},
+{n:"Myanmar",la:17,lo:96,reg:"seasia",y:mkY(22),pop:"55M",gdp:"$65B",key:"Military coup devastated economy; garment sector; limited digital infrastructure"},
+{n:"Cambodia",la:12.6,lo:104.9,reg:"seasia",y:mkY(20),pop:"17M",gdp:"$27B",key:"Garment industry; tourism; limited digital economy; Chinese investment in infrastructure"},
+{n:"Laos",la:18,lo:103,reg:"seasia",y:mkY(14),pop:"7.4M",gdp:"$15B",key:"Hydropower and tourism; limited formal sector; brain drain to Thailand"},
+{n:"Brunei",la:4.5,lo:114.7,reg:"seasia",y:mkY(40),pop:"0.44M",gdp:"$15B",key:"Oil economy with strong sovereign fund; administration jobs at risk"},
+{n:"Timor-Leste",la:-8.9,lo:125.7,reg:"seasia",y:mkY(8),pop:"1.3M",gdp:"$2B",key:"Oil dependent; very limited digital economy; subsistence agriculture dominant"},
+{n:"China",la:35,lo:104,reg:"eastasia",y:mkY(66),pop:"1.41B",gdp:"$17.7T",key:"60M construction workers; state-managed AI transition; space leadership; property debt constraint"},
+{n:"Japan",la:36,lo:138,reg:"eastasia",y:mkY(72),pop:"125M",gdp:"$4.2T",key:"Labour shortage means robots solve not threaten; JAXA growth; construction robot leader"},
+{n:"South Korea",la:36,lo:128,reg:"eastasia",y:mkY(70),pop:"52M",gdp:"$1.7T",key:"Samsung and LG automation supply chain; Kakao/Naver gig economy; KAIST AI research"},
+{n:"Taiwan",la:23.7,lo:121,reg:"eastasia",y:mkY(64),pop:"23M",gdp:"$790B",key:"Semiconductor fabrication AI risk; TSMC workforce; geopolitical risk adds complexity"},
+{n:"Hong Kong",la:22.3,lo:114.1,reg:"eastasia",y:mkY(66),pop:"7.4M",gdp:"$360B",key:"Financial services heavily exposed; political changes; high-skill workers better insulated"},
+{n:"Mongolia",la:46.9,lo:103.8,reg:"eastasia",y:mkY(18),pop:"3.4M",gdp:"$17B",key:"Mining economy; Ulaanbaatar growing gig sector; small formal economy"},
+{n:"North Korea",la:40,lo:127,reg:"eastasia",y:mkY(4),pop:"26M",gdp:"$18B",key:"Isolated state economy; zero gig economy; no AI exposure by design"},
+{n:"UAE",la:24,lo:54,reg:"mideast",y:mkY(60),pop:"9.9M",gdp:"$499B",key:"Most diversified Gulf economy; Dubai AI hub; DP World logistics automation; Vision 2031"},
+{n:"Saudi Arabia",la:24,lo:45,reg:"mideast",y:mkY(50),pop:"35M",gdp:"$1.1T",key:"Vision 2030 diversification; NEOM smart city; oil admin automation; 70% youth population"},
+{n:"Qatar",la:25.3,lo:51.2,reg:"mideast",y:mkY(48),pop:"2.9M",gdp:"$235B",key:"Gas wealth provides buffer; LNG admin automation; construction migrant workforce risk"},
+{n:"Kuwait",la:29.3,lo:47.7,reg:"mideast",y:mkY(44),pop:"4.3M",gdp:"$180B",key:"Oil revenues provide buffer; public sector dominated; private sector small"},
+{n:"Bahrain",la:26,lo:50.6,reg:"mideast",y:mkY(46),pop:"1.5M",gdp:"$44B",key:"Financial services hub; Fintech Bay; regional banking admin exposure"},
+{n:"Oman",la:21.5,lo:57.5,reg:"mideast",y:mkY(38),pop:"4.7M",gdp:"$105B",key:"Oil diversification; Duqm SEZ; tourism growing; logistics hub ambition"},
+{n:"Israel",la:31.5,lo:35,reg:"mideast",y:mkY(62),pop:"9.3M",gdp:"$522B",key:"Startup Nation; cybersecurity AI leader; high capacity to transition; defence tech jobs"},
+{n:"Jordan",la:30.6,lo:36.5,reg:"mideast",y:mkY(32),pop:"10.2M",gdp:"$46B",key:"BPO and IT sector growing; Syrian refugee pressure; Aqaba SEZ; remittances"},
+{n:"Lebanon",la:33.8,lo:35.9,reg:"mideast",y:mkY(20),pop:"5.4M",gdp:"$19B",key:"Economic collapse; brain drain; remote freelance workers forced out; banking crisis"},
+{n:"Syria",la:35,lo:38,reg:"mideast",y:mkY(8),pop:"21M",gdp:"$11B",key:"War devastation; reconstruction phase; minimal AI economic exposure currently"},
+{n:"Iraq",la:33,lo:44,reg:"mideast",y:mkY(18),pop:"42M",gdp:"$264B",key:"Oil revenue reconstruction; informal economy dominant; limited digital infrastructure"},
+{n:"Iran",la:32,lo:53,reg:"mideast",y:mkY(28),pop:"86M",gdp:"$367B",key:"Sanctions limit global platform access; domestic AI development; large educated youth"},
+{n:"Egypt",la:26,lo:30,reg:"mideast",y:mkY(28),pop:"105M",gdp:"$477B",key:"Large BPO sector; Suez logistics automation; high youth unemployment; IT sector growing"},
+{n:"Libya",la:27,lo:18,reg:"mideast",y:mkY(10),pop:"7M",gdp:"$52B",key:"Oil economy; political fragmentation; minimal formal digital economy"},
+{n:"Tunisia",la:33.9,lo:9.6,reg:"mideast",y:mkY(28),pop:"12M",gdp:"$47B",key:"BPO and IT sector; European offshoring destination; democratic transition stress"},
+{n:"Algeria",la:28.2,lo:2.6,reg:"mideast",y:mkY(18),pop:"45M",gdp:"$191B",key:"Oil and gas administration; large informal economy; limited digital infrastructure"},
+{n:"Morocco",la:32,lo:-6,reg:"mideast",y:mkY(25),pop:"37M",gdp:"$142B",key:"Casablanca Finance City; BPO growing; automotive supply chain; renewable energy jobs"},
+{n:"Yemen",la:15.5,lo:48,reg:"mideast",y:mkY(4),pop:"33M",gdp:"$19B",key:"Humanitarian crisis; civil war; zero capacity for AI transition"},
+{n:"Sudan",la:15,lo:30,reg:"mideast",y:mkY(6),pop:"46M",gdp:"$35B",key:"Political crisis; limited formal economy; agricultural sector dominant"},
+{n:"Nigeria",la:9,lo:8,reg:"africa",y:mkY(16),pop:"220M",gdp:"$477B",key:"60% youth unemployment; Konga/Jumia gig delivery; fintech Flutterwave; demographic boom"},
+{n:"South Africa",la:-29,lo:25,reg:"africa",y:mkY(35),pop:"60M",gdp:"$419B",key:"Best institutions in Africa; growing fintech; construction labour; Soweto informal economy"},
+{n:"Kenya",la:-1,lo:38,reg:"africa",y:mkY(22),pop:"55M",gdp:"$110B",key:"M-Pesa fintech leapfrog; Nairobi Silicon Savannah; gig platform workers; strong digital base"},
+{n:"Ethiopia",la:9,lo:40,reg:"africa",y:mkY(10),pop:"126M",gdp:"$127B",key:"Garment manufacturing growth; massive informal economy; Addis Ababa tech scene embryonic"},
+{n:"Ghana",la:8,lo:-1,reg:"africa",y:mkY(18),pop:"33M",gdp:"$77B",key:"Accra fintech hub; growing digital economy; cocoa supply chain AI; most stable W Africa"},
+{n:"Tanzania",la:-6,lo:35,reg:"africa",y:mkY(10),pop:"63M",gdp:"$72B",key:"Tourism and agriculture; Dar es Salaam gig economy emerging; Zanzibar digital nomads"},
+{n:"Uganda",la:1,lo:32,reg:"africa",y:mkY(8),pop:"48M",gdp:"$48B",key:"Young population; Kampala gig economy; agricultural majority; limited formal sector"},
+{n:"Rwanda",la:-2,lo:30,reg:"africa",y:mkY(18),pop:"14M",gdp:"$12B",key:"Kigali Innovation City; drone delivery leader Zipline; ambitious digital transition plan"},
+{n:"Senegal",la:14.5,lo:-14.4,reg:"africa",y:mkY(14),pop:"17M",gdp:"$28B",key:"Dakar emerging tech scene; groundnut economy; growing BPO sector; new oil revenues"},
+{n:"Ivory Coast",la:7.5,lo:-5.6,reg:"africa",y:mkY(14),pop:"27M",gdp:"$70B",key:"Abidjan West Africa finance hub; cocoa economy; growing fintech; political stability"},
+{n:"Cameroon",la:5,lo:12.4,reg:"africa",y:mkY(10),pop:"27M",gdp:"$45B",key:"Agricultural and oil economy; limited digital infrastructure; Douala commercial hub"},
+{n:"Mozambique",la:-18,lo:35,reg:"africa",y:mkY(6),pop:"33M",gdp:"$16B",key:"LNG boom economy; subsistence farming majority; Maputo growing port admin"},
+{n:"Zambia",la:-13.5,lo:27.5,reg:"africa",y:mkY(8),pop:"19M",gdp:"$28B",key:"Copper mining administration; Lusaka fintech growing; agricultural sector dominant"},
+{n:"Zimbabwe",la:-20,lo:30,reg:"africa",y:mkY(10),pop:"16M",gdp:"$26B",key:"Economic recovery; large informal economy; strong English skills enable platform work"},
+{n:"Angola",la:-11.2,lo:17.9,reg:"africa",y:mkY(8),pop:"35M",gdp:"$106B",key:"Oil economy; Luanda growing tech scene; informal economy 80% of employment"},
+{n:"Mali",la:17.6,lo:-4,reg:"africa",y:mkY(4),pop:"22M",gdp:"$19B",key:"Conflict and political crisis; gold and cotton economy; Bamako minimal digital sector"},
+{n:"Burkina Faso",la:12.4,lo:-1.6,reg:"africa",y:mkY(4),pop:"22M",gdp:"$19B",key:"Security crisis; subsistence agriculture; minimal formal digital economy"},
+{n:"Niger",la:17.6,lo:8.1,reg:"africa",y:mkY(4),pop:"25M",gdp:"$14B",key:"Uranium economy; agricultural majority; highest fertility rate globally; minimal digital"},
+{n:"Chad",la:15.5,lo:18.7,reg:"africa",y:mkY(4),pop:"18M",gdp:"$11B",key:"Oil economy; landlocked; minimal formal sector; humanitarian pressures"},
+{n:"Malawi",la:-13.3,lo:34,reg:"africa",y:mkY(5),pop:"20M",gdp:"$13B",key:"Agricultural economy; tobacco dominant; limited digital infrastructure; high poverty"},
+{n:"Madagascar",la:-20,lo:47,reg:"africa",y:mkY(7),pop:"28M",gdp:"$14B",key:"Vanilla and tourism; growing remote work sector; Antananarivo tech scene emerging"},
+{n:"Somalia",la:6,lo:46,reg:"africa",y:mkY(4),pop:"17M",gdp:"$8B",key:"Conflict and fragility; Hawala remittance system; Hormuud telecom is economic backbone"},
+{n:"Djibouti",la:11.8,lo:42.6,reg:"africa",y:mkY(16),pop:"1M",gdp:"$4B",key:"Port and logistics hub; US military base; small economy; Chinese port automation"},
+{n:"Gabon",la:-0.8,lo:11.8,reg:"africa",y:mkY(16),pop:"2.3M",gdp:"$20B",key:"Oil wealth per capita; small population; Libreville service economy growing"},
+{n:"DRC",la:-4,lo:24,reg:"africa",y:mkY(6),pop:"100M",gdp:"$60B",key:"Vast mineral wealth; humanitarian crisis; Kinshasa informal gig economy; coltan supply chain"},
+{n:"Botswana",la:-22.3,lo:24.7,reg:"africa",y:mkY(22),pop:"2.6M",gdp:"$18B",key:"Diamond economy; strong institutions; Gaborone growing financial centre"},
+{n:"Namibia",la:-22.5,lo:18,reg:"africa",y:mkY(18),pop:"2.6M",gdp:"$13B",key:"Mining and tourism; green hydrogen potential; Windhoek small services sector"},
+{n:"Mauritius",la:-20.2,lo:57.5,reg:"africa",y:mkY(36),pop:"1.3M",gdp:"$13B",key:"Financial services hub; BPO sector; Indian Ocean digital hub ambition; high income"},
+{n:"Cape Verde",la:15,lo:-24,reg:"africa",y:mkY(16),pop:"0.6M",gdp:"$2B",key:"Tourism and diaspora remittances; growing digital nomad destination; stable democracy"},
+{n:"Guinea",la:11,lo:-12,reg:"africa",y:mkY(6),pop:"13M",gdp:"$17B",key:"Bauxite wealth; political instability; Conakry minimal digital sector"},
+{n:"Sierra Leone",la:8.5,lo:-11.8,reg:"africa",y:mkY(6),pop:"8M",gdp:"$4B",key:"Post-conflict recovery; mining; Freetown growing mobile money adoption"},
+{n:"South Sudan",la:6.9,lo:31.3,reg:"africa",y:mkY(3),pop:"11M",gdp:"$4B",key:"Youngest nation; oil dependent; civil conflict; minimal formal economy"},
+{n:"Australia",la:-27,lo:133,reg:"oceania",y:mkY(63),pop:"26M",gdp:"$1.7T",key:"Mining AI Pilbara; trades apprenticeships high-value; space agency growing; strong institutions"},
+{n:"New Zealand",la:-41,lo:174,reg:"oceania",y:mkY(58),pop:"5M",gdp:"$250B",key:"AgriTech automation; Wellington tech hub; Maori economy resilience; strong social safety net"},
+{n:"Papua New Guinea",la:-6,lo:147,reg:"oceania",y:mkY(10),pop:"10M",gdp:"$29B",key:"Mining and gas economy; subsistence agriculture majority; very limited digital infrastructure"},
+{n:"Fiji",la:-17.7,lo:178,reg:"oceania",y:mkY(18),pop:"0.93M",gdp:"$5B",key:"Tourism and sugar; remittances; Suva growing financial hub; climate migration risk"}
+];
+var COUNTRY_BY_NAME={};
+ALL_COUNTRIES.forEach(function(c){COUNTRY_BY_NAME[c.n.toLowerCase()]=c;});
+// Legacy CTRY kept for nations tab region groupings
+var CTRY={};
+ALL_COUNTRIES.forEach(function(c){if(!CTRY[c.reg])CTRY[c.reg]=[];CTRY[c.reg].push(c);});
+var YF={2025:1,2026:1.22,2027:1.44,2028:1.66,2029:1.88,2030:2.1,2031:2.32,2032:2.54,2033:2.76,2034:2.88,2035:3.0};
+// RENDER HELPERS
+function mk(tag,css,html){var e=document.createElement(tag);if(css)e.style.cssText=css;if(html)e.innerHTML=html;return e;}
+function btn(label,css,fn){var b=mk("button",css);b.textContent=label;b.onclick=fn;return b;}
+function app(){return document.getElementById("app");}
+
+function redraw(){
+  cancelAnimationFrame(RAF);
+  var a=app();a.innerHTML="";
+  a.appendChild(topBar());
+  a.appendChild(tabBar());
+  var c=mk("div","flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0");
+  if(TAB==="globe")c.appendChild(globeTab());
+  else if(TAB==="radar")c.appendChild(radarTab());
+  else if(TAB==="nations")c.appendChild(nationsTab());
+  else if(TAB==="data")c.appendChild(dataTab());
+  else if(TAB==="gdp")c.appendChild(gdpTab());
+  else if(TAB==="conflict")c.appendChild(conflictTab());
+  else if(TAB==="hope")c.appendChild(hopeTab());
+  a.appendChild(c);
+  if(TAB==="globe")startGlobe();
+}
+
+function topBar(){
+  var totD=0,totN=0,totR=0,totC=0;
+  Object.keys(REG).forEach(function(k){var y=REG[k].y[YEAR];totD+=y.d;totN+=y.n;totR+=y.risk;totC++;});
+  var bar=mk("div","background:#040d1a;border-bottom:1px solid #112035;padding:7px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0");
+  var title=mk("div","flex-shrink:0");
+  title.innerHTML="<div style='font-size:15px;font-weight:700;color:#dceeff'>Earth Workforce Evolution</div><div style='font-size:9px;color:#3d6a8a'>AI | Gig | Construction | Space | Freelance | 2025-2035</div>";
+  bar.appendChild(title);
+  var stats=mk("div","display:flex;gap:0;flex-shrink:0;border-left:1px solid #112035;padding-left:14px");
+  function stat(label,val,col,tip){
+    var s=mk("div","position:relative;text-align:center;padding:0 11px;border-right:1px solid #112035");
+    s.innerHTML="<div style='font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#3d6a8a'>"+label+"</div><div style='font-size:15px;font-weight:700;color:"+col+"'>"+val+"</div>";
+    var tt=mk("div","position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);width:190px;background:#091d30;color:#7faac8;font-size:10px;line-height:1.7;padding:9px 11px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.8);z-index:9999;border:1px solid #112035;pointer-events:none;text-align:left;display:none");
+    tt.textContent=tip;s.appendChild(tt);
+    s.addEventListener("mouseenter",function(){tt.style.display="block";});
+    s.addEventListener("mouseleave",function(){tt.style.display="none";});
+    return s;
+  }
+  stats.appendChild(stat("Disrupted",totD.toFixed(1)+"M","#fc8181","Workers whose jobs are substantially automated - back-office, gig, construction."));
+  stats.appendChild(stat("New Roles",totN.toFixed(1)+"M","#68d391","Emerging jobs: AI engineering, space tech, drone ops, clean energy, construction robotics."));
+  stats.appendChild(stat("Gap","-"+(totD-totN).toFixed(1)+"M","#f6ad55","Displaced minus created - the policy challenge."));
+  stats.appendChild(stat("Avg Risk",Math.round(totR/totC)+"%","#63b3ed","Average automation exposure across all 9 regions."));
+  bar.appendChild(stats);
+  var sw=mk("div","flex:1;min-width:200px");
+  var top2=mk("div","display:flex;justify-content:space-between;align-items:center;margin-bottom:3px");
+  var yl=mk("span","font-size:8px;color:#3d6a8a");yl.textContent="Year";
+  var yn=mk("span","font-size:14px;font-weight:700;color:#63b3ed;letter-spacing:1px");yn.textContent=YEAR;
+  var pb=mk("button","background:"+(PLAYING?"rgba(252,129,129,0.12)":"rgba(99,179,237,0.1)")+";color:"+(PLAYING?"#fc8181":"#63b3ed")+";border:1px solid "+(PLAYING?"#fc8181":"#63b3ed")+";padding:3px 10px;font-size:9px;font-weight:700;border-radius:5px");
+  pb.textContent=PLAYING?"Stop":"Play";pb.onclick=togglePlay;
+  top2.appendChild(yl);top2.appendChild(yn);top2.appendChild(pb);sw.appendChild(top2);
+  var inp=document.createElement("input");
+  inp.type="range";inp.min=2025;inp.max=2035;inp.value=YEAR;inp.style.width="100%";
+  inp.oninput=function(){YEAR=+this.value;redraw();};sw.appendChild(inp);
+  var marks=mk("div","display:flex;justify-content:space-between;font-size:7px;margin-top:2px");
+  [2025,2027,2029,2031,2033,2035].forEach(function(y){var m=mk("span","color:"+(y===YEAR?"#63b3ed":"#3d6a8a")+";font-weight:"+(y===YEAR?"700":"400"));m.textContent=y;marks.appendChild(m);});
+  sw.appendChild(marks);bar.appendChild(sw);
+  return bar;
+}
+
+function togglePlay(){
+  if(PLAYING){clearInterval(PTIMER);PLAYING=false;redraw();return;}
+  PLAYING=true;var y=YEAR>=2035?2025:YEAR;if(YEAR>=2035)YEAR=2025;
+  PTIMER=setInterval(function(){y++;if(y>2035){clearInterval(PTIMER);PLAYING=false;}YEAR=y;redraw();},1200);redraw();
+}
+
+function tabBar(){
+  var bar=mk("div","background:#040d1a;border-bottom:1px solid #112035;display:flex;padding:0 12px;flex-shrink:0;overflow-x:auto");
+  [["globe","Globe"],["radar","Job Radar"],["nations","Nations"],["data","Observatory"],["gdp","GDP"],["conflict","Conflict"],["hope","Opportunity"]].forEach(function(t){
+    var active=TAB===t[0];
+    var b=mk("button","background:transparent;border:none;border-bottom:2px solid "+(active?"#63b3ed":"transparent")+";padding:8px 14px;font-size:10px;font-weight:"+(active?"700":"500")+";color:"+(active?"#63b3ed":"#3d6a8a")+";white-space:nowrap;flex-shrink:0;margin-bottom:-1px");
+    b.textContent=t[1];b.onclick=function(){TAB=t[0];redraw();};bar.appendChild(b);
+  });
+  return bar;
+}
+// GLOBE TAB
+function globeTab(){
+  var wrap=mk("div","display:flex;flex:1;overflow:hidden;min-height:0");
+  var lp=mk("div","width:185px;border-right:1px solid #112035;flex-shrink:0;overflow-y:auto;background:#040d1a;padding:8px");
+  lp.appendChild(leftPanel());wrap.appendChild(lp);
+  var center=mk("div","flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 48% 42%,#040e20,#020a14 65%);overflow:hidden;position:relative;min-width:0");
+  CVS=document.createElement("canvas");CVS.width=520;CVS.height=520;CVS.style.cssText="display:block;width:min(480px,90%);height:min(480px,90%);cursor:grab";
+  center.appendChild(CVS);
+  var hint=mk("div","position:absolute;bottom:12px;font-size:9px;color:#3d6a8a;background:rgba(4,13,26,0.85);padding:4px 14px;border-radius:20px;border:1px solid #112035;pointer-events:none");
+  hint.textContent="Drag to rotate  |  Click any country dot to inspect";center.appendChild(hint);
+  wrap.appendChild(center);
+  var rp=mk("div","width:268px;border-left:1px solid #112035;flex-shrink:0;overflow-y:auto;background:#040d1a;padding:10px");rp.setAttribute('data-rp','1');
+  rp.appendChild(rightPanel());wrap.appendChild(rp);
+  return wrap;
+}
+
+function leftPanel(){
+  var p=mk("div");var yf=YF[YEAR]||1;
+  var losing=[{n:"Delivery Driver",b:38},{n:"Data Entry Clerk",b:42},{n:"Call Centre Agent",b:35},{n:"Ride-Share Driver",b:30},{n:"Unskilled Labourer",b:22},{n:"Payroll Admin",b:28},{n:"Freelance Writer",b:26},{n:"Grocery Cashier",b:20}];
+  var gaining=[{n:"AI/ML Engineer",b:68},{n:"Space Tech Spec",b:52},{n:"Drone Fleet Mgr",b:48},{n:"AI Governance",b:54},{n:"Construction Robot",b:38},{n:"Climate Engineer",b:42},{n:"Gig Platform Mgr",b:32},{n:"Cybersec Analyst",b:30}];
+  function section(title,jobs,col){
+    var sec=mk("div");
+    var hd=mk("div","font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:"+col+";margin:8px 0 5px;display:flex;align-items:center;gap:4px");
+    hd.innerHTML="<span style='display:inline-block;width:5px;height:5px;border-radius:50%;background:"+col+"'></span>"+title;
+    sec.appendChild(hd);
+    jobs.forEach(function(j){
+      var pct=Math.min(Math.round(j.b*yf),100);
+      var row=mk("div","display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px solid #0b1928");
+      var box=mk("div","flex:1;min-width:0");
+      box.innerHTML="<div style='font-size:8.5px;font-weight:600;color:#7faac8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>"+j.n+"</div><div style='height:2px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;margin-top:2px'><div style='height:100%;width:"+pct+"%;background:"+col+";border-radius:2px'></div></div>";
+      var pe=mk("div","font-size:8px;font-weight:700;color:"+col+";min-width:28px;text-align:right;flex-shrink:0");
+      pe.textContent=(col==="#fc8181"?"-":"+")+pct+"%";
+      row.appendChild(box);row.appendChild(pe);sec.appendChild(row);
+    });
+    return sec;
+  }
+  p.appendChild(section("Displaced Roles",losing,"#fc8181"));
+  p.appendChild(section("Emerging Roles",gaining,"#68d391"));
+  var leg=mk("div","margin-top:8px;padding-top:8px;border-top:1px solid #112035");
+  [["#fc8181","Critical 85%+"],["#f6ad55","Severe 70-84%"],["#f6e05e","High 55-69%"],["#68d391","Moderate 40-54%"],["#48bb78","Low <40%"]].forEach(function(l){
+    var r=mk("div","display:flex;align-items:center;gap:5px;margin-bottom:4px;font-size:8px;color:#3d6a8a");
+    r.innerHTML="<span style='display:inline-block;width:6px;height:6px;border-radius:50%;background:"+l[0]+";flex-shrink:0'></span>"+l[1];
+    leg.appendChild(r);
+  });
+  p.appendChild(leg);return p;
+}
+
+function countryCard(ct){
+  var risk=ct.y[YEAR]||0,col=rc(risk),reg=REG[ct.reg];
+  var regName=reg?reg.name:ct.reg;
+  var allY=[2025,2026,2027,2028,2029,2030,2031,2032,2033,2034,2035];
+  var p=mk("div");
+  p.innerHTML="<div style='font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#3d6a8a;margin-bottom:6px'>COUNTRY PROFILE "+YEAR+"</div>"
+  +"<div style='font-size:20px;font-weight:700;color:#dceeff;margin-bottom:1px'>"+ct.n+"</div>"
+  +"<div style='font-size:9px;color:#3d6a8a;margin-bottom:8px'>"+regName+"  |  Pop: "+ct.pop+"  |  GDP: "+ct.gdp+"</div>"
+  +"<div style='display:flex;align-items:center;gap:8px;margin-bottom:8px'>"
+  +"<div style='display:inline-flex;background:"+col+"22;color:"+col+";border:1px solid "+col+"44;padding:3px 12px;border-radius:10px;font-size:9px;font-weight:700;align-items:center;gap:5px'>"
+  +"<span style='width:7px;height:7px;border-radius:50%;background:"+col+";display:inline-block;box-shadow:0 0 5px "+col+"'></span>"
+  +rl(risk)+" Risk  &mdash;  "+risk+"%"
+  +"</div></div>"
+  +"<div style='height:5px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden;margin-bottom:12px'><div style='height:100%;width:"+risk+"%;background:"+col+";border-radius:4px;box-shadow:0 0 8px "+col+"66'></div></div>";
+  // Year sparkline
+  var chart=mk("div","background:#071525;border:1px solid #112035;border-radius:8px;padding:6px 4px;display:flex;gap:1px;align-items:flex-end;margin-bottom:12px");
+  var peak=Math.max.apply(null,allY.map(function(y){return ct.y[y]||0;}));
+  allY.forEach(function(y){
+    var v=ct.y[y]||0,c2=rc(v),isSel=y===YEAR;
+    var col2=mk("div","flex:1;text-align:center;cursor:pointer");
+    var bh=mk("div","display:flex;align-items:flex-end;justify-content:center;height:32px;margin-bottom:2px");
+    var bar=mk("div","border-radius:2px 2px 0 0;width:80%;transition:height 0.2s");
+    bar.style.cssText="height:"+(peak>0?(v/peak*32):0)+"px;background:"+c2+";opacity:"+(isSel?1:0.25)+(isSel?";box-shadow:0 0 6px "+c2:"");
+    bh.appendChild(bar);
+    var lbl=mk("div","font-size:5px;color:"+(isSel?"#63b3ed":"#3d6a8a"));lbl.textContent=y;
+    col2.appendChild(bh);col2.appendChild(lbl);
+    col2.onclick=(function(yr){return function(){YEAR=yr;redraw();};})(y);
+    chart.appendChild(col2);
+  });
+  p.appendChild(chart);
+  // Key insight
+  var insight=mk("div","background:#071525;border-left:3px solid "+col+";border-radius:0 8px 8px 0;padding:9px 12px;margin-bottom:12px;border-top:1px solid #112035;border-right:1px solid #112035;border-bottom:1px solid #112035");
+  insight.innerHTML="<div style='font-size:7.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:"+col+";margin-bottom:4px'>AI Displacement Context</div><div style='font-size:10px;color:#7faac8;line-height:1.75'>"+ct.key+"</div>";
+  p.appendChild(insight);
+  // 2025 vs 2035
+  var compare=mk("div","display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px");
+  var c2025=rc(ct.y[2025]||0),c2035=rc(ct.y[2035]||0);
+  [{yr:2025,v:ct.y[2025]||0,c:c2025},{yr:2035,v:ct.y[2035]||0,c:c2035}].forEach(function(m){
+    var card=mk("div","background:#071525;border:1px solid #112035;border-radius:8px;padding:8px 10px;text-align:center");
+    card.innerHTML="<div style='font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#3d6a8a;margin-bottom:3px'>"+m.yr+"</div>"
+    +"<div style='font-size:22px;font-weight:700;color:"+m.c+";line-height:1'>"+m.v+"%</div>"
+    +"<div style='font-size:8px;color:"+m.c+";margin-top:2px'>"+rl(m.v)+"</div>";
+    compare.appendChild(card);
+  });
+  p.appendChild(compare);
+  // Region context
+  if(reg){
+    var ry=reg.y[YEAR];
+    var regCard=mk("div","background:#071525;border:1px solid #112035;border-radius:8px;padding:8px 10px;margin-bottom:8px");
+    regCard.innerHTML="<div style='font-size:7.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#3d6a8a;margin-bottom:6px'>Regional Context  &mdash;  "+reg.name+"</div>"
+    +"<div style='display:flex;gap:8px'>"
+    +"<div style='flex:1;text-align:center'><div style='font-size:13px;font-weight:700;color:"+rc(ry.risk)+"'>"+ry.risk+"%</div><div style='font-size:7px;color:#3d6a8a'>Reg avg risk</div></div>"
+    +"<div style='flex:1;text-align:center'><div style='font-size:13px;font-weight:700;color:#fc8181'>"+ry.d+"M</div><div style='font-size:7px;color:#3d6a8a'>Displaced</div></div>"
+    +"<div style='flex:1;text-align:center'><div style='font-size:13px;font-weight:700;color:#68d391'>"+ry.n+"M</div><div style='font-size:7px;color:#3d6a8a'>New roles</div></div>"
+    +"</div>"
+    +"<div style='margin-top:8px'><div style='font-size:7.5px;color:#3d6a8a;margin-bottom:4px'>Key sectors:</div>"
+    +reg.sectors.map(function(s){return "<span style='display:inline-block;background:#091d30;color:#7faac8;border:1px solid #112035;padding:1px 7px;border-radius:5px;font-size:8px;margin:2px 2px 0 0'>"+s+"</span>";}).join("")
+    +"</div>";
+    p.appendChild(regCard);
+  }
+  var cb=mk("button","background:rgba(99,179,237,0.08);color:#3d6a8a;border:1px solid #112035;width:100%;padding:6px;border-radius:8px;font-size:9px;cursor:pointer;margin-top:4px");
+  cb.textContent="Clear selection";cb.onclick=function(){SEL_COUNTRY=null;HOV_COUNTRY=null;redraw();};
+  p.appendChild(cb);
+  return p;
+}
+
+function rightPanel(){
+  var p=mk("div");
+  // Show selected or hovered country first
+  var active=SEL_COUNTRY||HOV_COUNTRY;
+  if(active){p.appendChild(countryCard(active));return p;}
+  // Search box + list
+  var sh=mk("div","font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#3d6a8a;margin-bottom:8px");
+  sh.textContent="ALL COUNTRIES  -  "+YEAR;p.appendChild(sh);
+  // Search input
+  var si=document.createElement("input");
+  si.type="text";si.placeholder="Search any country...";si.value=SEARCH_Q;
+  si.style.cssText="width:100%;background:#071525;border:1px solid #112035;color:#dceeff;padding:6px 10px;border-radius:8px;font-size:11px;outline:none;margin-bottom:8px;box-sizing:border-box";
+  si.oninput=function(){SEARCH_Q=this.value;renderList();};
+  p.appendChild(si);
+  var listDiv=mk("div");
+  p.appendChild(listDiv);
+  function renderList(){
+    listDiv.innerHTML="";
+    var q=SEARCH_Q.toLowerCase().trim();
+    var filtered=ALL_COUNTRIES.filter(function(c){return !q||c.n.toLowerCase().includes(q)||c.reg.includes(q);});
+    filtered=filtered.slice().sort(function(a,b){return(b.y[YEAR]||0)-(a.y[YEAR]||0);});
+    if(filtered.length===0){var em=mk("div","font-size:10px;color:#3d6a8a;text-align:center;padding:16px");em.textContent="No countries found";listDiv.appendChild(em);return;}
+    filtered.forEach(function(ct){
+      var risk=ct.y[YEAR]||0,col=rc(risk);
+      var row=mk("div","display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:7px;cursor:pointer;border:1px solid transparent;margin-bottom:2px");
+      row.style.background="rgba(7,21,37,0.8)";
+      row.onmouseenter=function(){this.style.background="#091d30";this.style.borderColor="#112035";HOV_COUNTRY=ct;updateGlobeHighlight(ct);};
+      row.onmouseleave=function(){this.style.background="rgba(7,21,37,0.8)";this.style.borderColor="transparent";HOV_COUNTRY=null;updateGlobeHighlight(null);};
+      row.onclick=function(){SEL_COUNTRY=ct;SEARCH_Q="";redraw();};
+      var dot=mk("span","");dot.style.cssText="width:7px;height:7px;border-radius:50%;background:"+col+";display:inline-block;flex-shrink:0;box-shadow:0 0 4px "+col+"88";
+      var inf=mk("div","flex:1;min-width:0");
+      inf.innerHTML="<div style='font-size:10px;font-weight:600;color:#dceeff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>"+ct.n+"</div>"
+      +"<div style='height:2px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:2px'><div style='height:100%;width:"+risk+"%;background:"+col+";border-radius:2px'></div></div>";
+      var pe=mk("div","font-size:10px;font-weight:700;color:"+col+";min-width:32px;text-align:right;flex-shrink:0");pe.textContent=risk+"%";
+      row.appendChild(dot);row.appendChild(inf);row.appendChild(pe);listDiv.appendChild(row);
+    });
+    // Stats bar
+    var total=filtered.length;
+    var critical=filtered.filter(function(c){return(c.y[YEAR]||0)>=70;}).length;
+    var low=filtered.filter(function(c){return(c.y[YEAR]||0)<40;}).length;
+    var stats=mk("div","background:#071525;border:1px solid #112035;border-radius:8px;padding:8px;margin-top:6px;display:flex;gap:4px;text-align:center");
+    [{v:total,l:"countries",c:"#63b3ed"},{v:critical,l:"high risk",c:"#fc8181"},{v:low,l:"low risk",c:"#68d391"}].forEach(function(s){
+      var sc=mk("div","flex:1");sc.innerHTML="<div style='font-size:14px;font-weight:700;color:"+s.c+"'>"+s.v+"</div><div style='font-size:7px;color:#3d6a8a'>"+s.l+"</div>";stats.appendChild(sc);
+    });
+    listDiv.appendChild(stats);
+  }
+  renderList();
+  setTimeout(function(){if(si&&si.parentNode)si.focus();},50);
+  return p;
+}
+
+// Live-update globe highlight without full redraw
+var GLOBE_HIGHLIGHT_CT=null;
+function updateGlobeHighlight(ct){GLOBE_HIGHLIGHT_CT=ct;}
+
+
+// GLOBE CANVAS - Photorealistic NASA texture-mapped sphere
+// Uses raycasting to map each pixel to a lat/lon on the earth texture
+var EARTH_IMG = null;
+var EARTH_READY = false;
+var EARTH_OFF = null; // offscreen canvas for texture source pixels
+
+function loadEarthTexture(cb){
+  if(EARTH_READY){cb();return;}
+  var img = new Image();
+  img.crossOrigin = "anonymous";
+  // NASA Blue Marble Next Generation - publicly available
+  img.src = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/The_Blue_Marble_%28remastered%29.jpg/2048px-The_Blue_Marble_%28remastered%29.jpg";
+  img.onload = function(){
+    EARTH_IMG = img;
+    // Draw into offscreen canvas for fast pixel access
+    EARTH_OFF = document.createElement("canvas");
+    EARTH_OFF.width = 512; EARTH_OFF.height = 256;
+    var octx = EARTH_OFF.getContext("2d");
+    octx.drawImage(img, 0, 0, 512, 256);
+    EARTH_READY = true;
+    cb();
+  };
+  img.onerror = function(){
+    // Fallback: try alternate URL
+    var img2 = new Image();
+    img2.crossOrigin = "anonymous";
+    img2.src = "https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200412.3x2048x1024.jpg";
+    img2.onload = function(){
+      EARTH_IMG = img2;
+      EARTH_OFF = document.createElement("canvas");
+      EARTH_OFF.width = 512; EARTH_OFF.height = 256;
+      var octx2 = EARTH_OFF.getContext("2d");
+      octx2.drawImage(img2, 0, 0, 512, 256);
+      EARTH_READY = true;
+      cb();
+    };
+    img2.onerror = function(){ EARTH_READY = false; cb(); };
+  };
+}
+
+function startGlobe(){
+  if(!CVS)return;
+  var ctx=CVS.getContext("2d"),alive=true;
+
+  // Load earth texture then start rendering
+  loadEarthTexture(function(){ if(alive) RAF=requestAnimationFrame(frame); });
+
+  function sampleTexture(lon, lat){
+    // lon: -180..180, lat: -90..90 -> pixel color from earth texture
+    if(!EARTH_OFF) return [20, 60, 120]; // fallback ocean blue
+    var u = ((lon + 180) / 360) * 512;
+    // The Blue Marble image is oriented with north up, equator in middle
+    // lat goes +90 (top) to -90 (bottom)
+    var v = ((90 - lat) / 180) * 256;
+    u = Math.max(0, Math.min(511, Math.floor(u)));
+    v = Math.max(0, Math.min(255, Math.floor(v)));
+    var px = EARTH_OFF.getContext("2d").getImageData(u, v, 1, 1).data;
+    return [px[0], px[1], px[2]];
+  }
+
+  // Pre-build texture pixel cache at render resolution for speed
+  var texCache = null;
+  var texCacheRY = null;
+  var texCacheRX = null;
+  var TSIZE = 260; // render texture at this diameter
+
+  function buildTexCache(R_int, ry, rx){
+    var d = TSIZE;
+    var cache = new Uint8ClampedArray(d * d * 4);
+    var offCtx = EARTH_OFF ? EARTH_OFF.getContext("2d") : null;
+    // Get entire texture data at once for speed
+    var texData = offCtx ? offCtx.getImageData(0,0,512,256).data : null;
+
+    for(var py=0; py<d; py++){
+      for(var px=0; px<d; px++){
+        var nx2 = (px - d/2) / (d/2 - 2);
+        var ny2 = (py - d/2) / (d/2 - 2);
+        var dist2 = nx2*nx2 + ny2*ny2;
+        var i4 = (py*d+px)*4;
+        if(dist2 > 1.0){ cache[i4+3]=0; continue; }
+        var nz2 = Math.sqrt(1 - dist2);
+        // Reverse the rotation to find original lat/lon
+        // First undo rotX (tilt)
+        var cx2 = Math.cos(-rx), sx2 = Math.sin(-rx);
+        var y2r = ny2*cx2 - nz2*sx2;
+        var z2r = ny2*sx2 + nz2*cx2;
+        // Then undo rotY (spin)
+        var cy2 = Math.cos(-ry), sy2 = Math.sin(-ry);
+        var x2r = nx2*cy2 - z2r*sy2;
+        var z3r = nx2*sy2 + z2r*cy2;
+        // Convert to lat/lon
+        var lat2 = Math.asin(Math.max(-1,Math.min(1,-y2r))) * 180/Math.PI;
+        var lon2 = Math.atan2(x2r, z3r) * 180/Math.PI - 90;
+        // Sample texture
+        var r2,g2,b2;
+        if(texData){
+          var tu = Math.floor(((lon2 + 180) / 360) * 512) % 512;
+          if(tu<0)tu+=512;
+          var tv = Math.max(0,Math.min(255, Math.floor(((90 - lat2) / 180) * 256)));
+          var ti = (tv*512+tu)*4;
+          r2=texData[ti]; g2=texData[ti+1]; b2=texData[ti+2];
+        } else {
+          r2=20; g2=60; b2=120;
+        }
+        // Lighting: simple Lambertian from top-left
+        var lx3=-0.5,ly3=-0.7,lz3=0.5;
+        var nl2=Math.sqrt(lx3*lx3+ly3*ly3+lz3*lz3);
+        lx3/=nl2;ly3/=nl2;lz3/=nl2;
+        var diff=Math.max(0.18, nx2*lx3 + (-ny2)*ly3 + nz2*lz3);
+        // Limb darkening
+        var limb=Math.pow(nz2, 0.4)*0.85+0.15;
+        var bright=diff*limb;
+        cache[i4]   = Math.min(255,r2*bright);
+        cache[i4+1] = Math.min(255,g2*bright);
+        cache[i4+2] = Math.min(255,b2*bright);
+        cache[i4+3] = 255;
+      }
+    }
+    return cache;
+  }
+
+  function frame(){
+    if(!alive)return;
+    var W=CVS.width,H=CVS.height,cx=W/2,cy=H/2,R=Math.min(W,H)*0.43;
+    var ry=GRY,rx=GRX;
+    ctx.clearRect(0,0,W,H);
+
+    // Deep space background
+    var bg=ctx.createRadialGradient(W*0.3,H*0.25,0,W*0.5,H*0.5,W*0.8);
+    bg.addColorStop(0,"#05101f");bg.addColorStop(0.5,"#020b16");bg.addColorStop(1,"#010508");
+    ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+    // Stars
+    STARS.forEach(function(s){
+      ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);
+      ctx.fillStyle="rgba(220,235,255,"+s.a+")";ctx.fill();
+    });
+
+    if(EARTH_READY && EARTH_OFF){
+      // Rebuild texture cache only when rotation changes significantly
+      var ryR = Math.round(ry*60)/60;
+      var rxR = Math.round(rx*60)/60;
+      if(!texCache || texCacheRY!==ryR || texCacheRX!==rxR){
+        texCache = buildTexCache(R, ryR, rxR);
+        texCacheRY = ryR; texCacheRX = rxR;
+      }
+
+      // Draw the textured sphere via ImageData
+      var offC = document.createElement("canvas");
+      offC.width = TSIZE; offC.height = TSIZE;
+      var offCtx2 = offC.getContext("2d");
+      var imgd = offCtx2.createImageData(TSIZE, TSIZE);
+      imgd.data.set(texCache);
+      offCtx2.putImageData(imgd, 0, 0);
+
+      // Scale up to actual radius and draw centered
+      var diam = R * 2;
+      ctx.save();
+      ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.clip();
+      ctx.drawImage(offC, cx-R, cy-R, diam, diam);
+      ctx.restore();
+    } else {
+      // Fallback while loading: beautiful procedural ocean
+      var ocean=ctx.createRadialGradient(cx-R*0.3,cy-R*0.25,R*0.05,cx,cy,R);
+      ocean.addColorStop(0,"#2a7abf");ocean.addColorStop(0.4,"#0e4d8a");ocean.addColorStop(0.75,"#082c52");ocean.addColorStop(1,"#041b34");
+      ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fillStyle=ocean;ctx.fill();
+      // Loading text
+      ctx.save();ctx.font="bold 13px Arial";ctx.fillStyle="rgba(100,180,255,0.6)";ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.fillText("Loading Earth texture...",cx,cy);ctx.restore();
+    }
+
+    // Atmosphere glow (always on top)
+    var atm=ctx.createRadialGradient(cx,cy,R*0.88,cx,cy,R*1.22);
+    atm.addColorStop(0,"rgba(60,140,255,0.22)");
+    atm.addColorStop(0.4,"rgba(30,90,200,0.10)");
+    atm.addColorStop(0.7,"rgba(10,50,150,0.04)");
+    atm.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.beginPath();ctx.arc(cx,cy,R*1.22,0,Math.PI*2);ctx.fillStyle=atm;ctx.fill();
+
+    // Thin atmosphere ring on edge
+    ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+    ctx.strokeStyle="rgba(80,160,255,0.35)";ctx.lineWidth=2.5;ctx.stroke();
+
+    // Specular highlight (sun glint top-left)
+    var hl=ctx.createRadialGradient(cx-R*0.42,cy-R*0.38,0,cx-R*0.2,cy-R*0.15,R*0.6);
+    hl.addColorStop(0,"rgba(255,255,255,0.13)");
+    hl.addColorStop(0.5,"rgba(255,255,255,0.04)");
+    hl.addColorStop(1,"rgba(255,255,255,0)");
+    ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.clip();
+    ctx.fillStyle=hl;ctx.fillRect(cx-R,cy-R,R*2,R*2);ctx.restore();
+
+    // Country border highlights - thin lines over texture for visible regions
+    ctx.strokeStyle="rgba(255,255,200,0.18)";ctx.lineWidth=0.5;
+    GEO.forEach(function(g){
+      var ctr=proj(g.lx,g.ly,ry,rx,R);if(ctr.z<0)return;
+      ctx.beginPath();var st=false;
+      g.pts.forEach(function(pt){
+        var p=proj(pt[0],pt[1],ry,rx,R);
+        if(!p.vis){st=false;return;}
+        if(!st){ctx.moveTo(cx+p.sx,cy+p.sy);st=true;}
+        else ctx.lineTo(cx+p.sx,cy+p.sy);
+      });
+      if(st){ctx.closePath();ctx.stroke();}
+    });
+
+    // Country dots + spikes for all 161 countries
+    var activeCt=SEL_COUNTRY||HOV_COUNTRY||GLOBE_HIGHLIGHT_CT;
+    ALL_COUNTRIES.forEach(function(ct){
+      var risk=ct.y[YEAR]||0;if(risk===0)return;
+      var col=rc(risk);
+      var p6=proj(ct.la,ct.lo,ry,rx,R);
+      if(!p6.vis||p6.z<0.04)return;
+      var op=Math.min(1,(p6.z-0.04)*4);
+      var isActive=(activeCt&&activeCt.n===ct.n);
+      var isMajor=risk>=55;
+
+      var nl=Math.sqrt(p6.sx*p6.sx+p6.sy*p6.sy)||0.001;
+      var nx2=p6.sx/nl,ny2=p6.sy/nl;
+      var bx=cx+p6.sx,by=cy+p6.sy;
+
+      ctx.save();
+      if(isActive){
+        // Full spike for active country
+        ctx.globalAlpha=op;
+        var sH=(risk/100)*70+12;
+        var tx=bx+nx2*sH,ty=by+ny2*sH;
+        ctx.shadowColor=col;ctx.shadowBlur=24;
+        var sg=ctx.createLinearGradient(bx,by,tx,ty);
+        sg.addColorStop(0,col+"10");sg.addColorStop(0.5,col+"99");sg.addColorStop(1,col);
+        ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(tx,ty);
+        ctx.strokeStyle=sg;ctx.lineWidth=2.5;ctx.lineCap="round";ctx.stroke();
+        ctx.shadowBlur=28;
+        ctx.beginPath();ctx.arc(tx,ty,6,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();
+        // Pulse rings
+        ctx.shadowBlur=0;
+        ctx.globalAlpha=0.35*op;ctx.strokeStyle=col;ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.arc(tx,ty,11,0,Math.PI*2);ctx.stroke();
+        ctx.globalAlpha=0.18*op;
+        ctx.beginPath();ctx.arc(tx,ty,18,0,Math.PI*2);ctx.stroke();
+        // Label
+        var lx2=tx+nx2*18,ly2=ty+ny2*18;
+        ctx.globalAlpha=op;
+        ctx.font="bold 11px 'Courier New',monospace";ctx.textAlign="center";ctx.textBaseline="middle";
+        var tw=ctx.measureText(risk+"%").width;
+        ctx.fillStyle="rgba(2,8,18,0.88)";
+        ctx.beginPath();ctx.roundRect(lx2-tw/2-5,ly2-8,tw+10,16,4);ctx.fill();
+        ctx.fillStyle="#fff";ctx.fillText(risk+"%",lx2,ly2);
+        var lx3=tx+nx2*40,ly3=ty+ny2*40;
+        var tw2=ctx.measureText(ct.n).width;
+        ctx.font="bold 10px Arial,sans-serif";
+        ctx.fillStyle="rgba(2,8,18,0.88)";
+        ctx.beginPath();ctx.roundRect(lx3-tw2/2-6,ly3-8,tw2+12,16,4);ctx.fill();
+        ctx.fillStyle="#fff";ctx.fillText(ct.n,lx3,ly3);
+      } else if(isMajor){
+        // Moderate spike for high-risk countries
+        ctx.globalAlpha=op*0.72;
+        var sH2=(risk/100)*42+5;
+        var tx2=bx+nx2*sH2,ty2=by+ny2*sH2;
+        ctx.shadowColor=col;ctx.shadowBlur=8;
+        var sg2=ctx.createLinearGradient(bx,by,tx2,ty2);
+        sg2.addColorStop(0,col+"08");sg2.addColorStop(1,col+"cc");
+        ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(tx2,ty2);
+        ctx.strokeStyle=sg2;ctx.lineWidth=1.4;ctx.lineCap="round";ctx.stroke();
+        ctx.shadowBlur=7;
+        ctx.beginPath();ctx.arc(tx2,ty2,2.8,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+        // Small risk label for very high risk
+        if(risk>=75){
+          var lx4=tx2+nx2*11,ly4=ty2+ny2*11;
+          ctx.globalAlpha=op*0.7;ctx.shadowBlur=0;
+          ctx.font="bold 7.5px monospace";ctx.textAlign="center";ctx.textBaseline="middle";
+          var tw3=ctx.measureText(risk+"%").width;
+          ctx.fillStyle="rgba(2,8,18,0.75)";ctx.fillRect(lx4-tw3/2-3,ly4-5.5,tw3+6,11);
+          ctx.fillStyle=col;ctx.fillText(risk+"%",lx4,ly4);
+        }
+      } else {
+        // Simple dot for lower-risk countries
+        ctx.globalAlpha=op*0.55;
+        var dotR=risk>=40?2.2:1.4;
+        ctx.shadowBlur=4;ctx.shadowColor=col;
+        ctx.beginPath();ctx.arc(bx+nx2*2,by+ny2*2,dotR,0,Math.PI*2);
+        ctx.fillStyle=col;ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    // City dots on top
+    CITIES.forEach(function(c){
+      var p5=proj(c.la,c.lo,ry,rx,R);if(!p5.vis||p5.z<0.12)return;
+      var op5=Math.min(1,(p5.z-0.12)*4)*0.7;
+      ctx.save();ctx.globalAlpha=op5;
+      ctx.beginPath();ctx.arc(cx+p5.sx,cy+p5.sy,1.8,0,Math.PI*2);
+      ctx.fillStyle="rgba(255,240,130,1)";
+      ctx.shadowColor="rgba(255,220,80,0.8)";ctx.shadowBlur=4;
+      ctx.fill();
+      ctx.font="6.5px Arial,sans-serif";ctx.textAlign="left";ctx.textBaseline="middle";
+      ctx.shadowBlur=0;ctx.fillStyle="rgba(255,245,180,0.85)";
+      ctx.fillText(c.n,cx+p5.sx+4,cy+p5.sy);
+      ctx.restore();
+    });
+
+    if(GAUTO)GRY+=0.0022;
+    RAF=requestAnimationFrame(frame);
+  }
+
+  function getXY(e){
+    var r=CVS.getBoundingClientRect(),s=e.touches?e.touches[0]:e;
+    return{x:(s.clientX-r.left)*(CVS.width/r.width),y:(s.clientY-r.top)*(CVS.height/r.height),cx:CVS.width/2,cy:CVS.height/2,R:Math.min(CVS.width,CVS.height)*0.43};
+  }
+  function hit(mx,my,R2,cx2,cy2){
+    // Hit test all 161 countries - find closest visible dot
+    var best=null,bd=22;
+    ALL_COUNTRIES.forEach(function(ct){
+      var risk=ct.y[YEAR]||0;
+      var p=proj(ct.la,ct.lo,GRY,GRX,R2);if(!p.vis||p.z<0.06)return;
+      // Dot position on sphere surface (slightly raised)
+      var nl=Math.sqrt(p.sx*p.sx+p.sy*p.sy)||0.001;
+      var raise=risk>=40?5:3;
+      var tx=cx2+p.sx+(p.sx/nl)*raise,ty=cy2+p.sy+(p.sy/nl)*raise;
+      var d3=Math.sqrt((mx-tx)*(mx-tx)+(my-ty)*(my-ty));
+      if(d3<bd){bd=d3;best=ct;}
+    });return best;
+  }
+  CVS.addEventListener("mousedown",function(e){var xy=getXY(e);GDRAG=true;GLX=xy.x;GLY=xy.y;GMOVED=false;GAUTO=false;clearTimeout(ATIMER);});
+  CVS.addEventListener("mousemove",function(e){
+    var xy=getXY(e);
+    if(GDRAG){GRY+=(xy.x-GLX)*0.007;GRX=Math.max(-1.1,Math.min(1.1,GRX+(xy.y-GLY)*0.007));GLX=xy.x;GLY=xy.y;GMOVED=true;}
+    else{
+      var f=hit(xy.x,xy.y,xy.R,xy.cx,xy.cy);
+      if(f!==HOV_COUNTRY){HOV_COUNTRY=f;GLOBE_HIGHLIGHT_CT=f;
+        // Only full redraw if right panel needs updating
+        if(!SEL_COUNTRY){var rp=document.querySelector('[data-rp]');if(rp)rp.parentNode.replaceChild((function(){var d=document.createElement('div');d.setAttribute('data-rp','1');d.style.cssText='width:268px;border-left:1px solid #112035;flex-shrink:0;overflow-y:auto;background:#040d1a;padding:10px';d.appendChild(rightPanel());return d;})(),rp);}
+      }
+    }
+  });
+  CVS.addEventListener("mouseup",function(e){
+    if(!GDRAG)return;
+    if(!GMOVED){var xy=getXY(e),f=hit(xy.x,xy.y,xy.R,xy.cx,xy.cy);
+      if(f){SEL_COUNTRY=(SEL_COUNTRY&&SEL_COUNTRY.n===f.n)?null:f;SEARCH_Q="";}
+      redraw();
+    }
+    GDRAG=false;ATIMER=setTimeout(function(){GAUTO=true;},4000);
+  });
+  CVS.addEventListener("mouseleave",function(){if(HOV_COUNTRY){HOV_COUNTRY=null;GLOBE_HIGHLIGHT_CT=null;if(!SEL_COUNTRY)redraw();}});
+  CVS.addEventListener("touchstart",function(e){e.preventDefault();var xy=getXY(e);GDRAG=true;GLX=xy.x;GLY=xy.y;GMOVED=false;GAUTO=false;},{passive:false});
+  CVS.addEventListener("touchmove",function(e){e.preventDefault();var xy=getXY(e);if(GDRAG){GRY+=(xy.x-GLX)*0.007;GRX=Math.max(-1.1,Math.min(1.1,GRX+(xy.y-GLY)*0.007));GLX=xy.x;GLY=xy.y;GMOVED=true;}},{passive:false});
+  CVS.addEventListener("touchend",function(e){if(!GDRAG)return;if(!GMOVED){var xy=getXY({touches:e.changedTouches});var f=hit(xy.x,xy.y,xy.R,xy.cx,xy.cy);if(f){SEL_COUNTRY=(SEL_COUNTRY&&SEL_COUNTRY.n===f.n)?null:f;SEARCH_Q="";redraw();}}GDRAG=false;ATIMER=setTimeout(function(){GAUTO=true;},4000);});
+}
+// JOB RADAR
+var DYING=[
+  {rank:1,job:"Delivery Driver (Uber Eats/DoorDash)",sector:"Gig Economy",tl:"2026-2031",impact:"-4.2M",why:"Autonomous vehicles, drones, and robot couriers replace last-mile humans. Waymo, Nuro and Starship already at scale.",degree:"No degree required",path:"Transition: EV/AV fleet technician (6-month cert), FAA Part 107 drone operator, logistics supervisor. Automotive tech + EV cert (18 months)."},
+  {rank:2,job:"Ride-Share Driver (Uber/Lyft)",sector:"Gig Economy",tl:"2027-2033",impact:"-2.9M",why:"Robotaxi networks (Waymo, Tesla FSD) expand city by city. Cost per mile drops 60% below human drivers.",degree:"Drivers licence",path:"5-7 year window. Evolve to: AV fleet maintenance tech (trade cert), mobility operations coordinator. Apprenticeships at Tesla, Waymo."},
+  {rank:3,job:"Food/Grocery Delivery Courier",sector:"Gig Economy",tl:"2027-2032",impact:"-2.1M",why:"Sidewalk robots (Starship) in 100+ cities. Drone delivery (Wing, Amazon) scaling fast. Most automatable gig role.",degree:"None",path:"FAA Part 107 drone cert (2-4 weeks, $175 exam). Gig platform field technician. No degree required."},
+  {rank:4,job:"Data Entry Clerk",sector:"Back-Office",tl:"2025-2028",impact:"-3.8M",why:"LLMs and OCR process forms at 200x human speed. 95%+ automatable today.",degree:"High school/associate",path:"Google Data Analytics cert (6 months), Microsoft Power Automate, community college data science AAS (18 months)."},
+  {rank:5,job:"Call Centre / Customer Service Rep",sector:"Customer Service",tl:"2025-2029",impact:"-3.5M",why:"Conversational AI handles 80-90% of tier-1 queries faster and cheaper.",degree:"High school diploma",path:"AI prompt engineer (no degree, online), escalation specialist, CX designer. Google UX Design cert (6 months)."},
+  {rank:6,job:"Construction Labourer (unskilled)",sector:"Construction",tl:"2028-2035",impact:"-2.1M",why:"Robotic bricklayers lay 3,000 bricks/day vs 500 for humans. AI excavators and concrete printers scaling.",degree:"No formal degree",path:"Apprenticeship: Electrician (4yr IBEW), Plumber (UA), HVAC - all highly AI-resistant. Or: construction robotics operator cert (2yr). Salary $65-95K."},
+  {rank:7,job:"Construction Truck/Equipment Operator",sector:"Construction",tl:"2028-2034",impact:"-0.9M",why:"Autonomous construction vehicles (Komatsu, Caterpillar) operate on closed job sites.",degree:"CDL license",path:"Transition: autonomous equipment supervisor, construction AI systems tech. Cat and Komatsu run direct transition programs."},
+  {rank:8,job:"Payroll and HR Administrator",sector:"Back-Office",tl:"2025-2029",impact:"-1.8M",why:"AI platforms (Rippling, ADP AI, Workday) automate payroll and compliance. 70% of HR admin automatable.",degree:"Associate/bachelor in business",path:"HR technology consultant ($85-150K), people analytics manager. Certs: SHRM-CP, PHR. Add AI literacy course (3 months)."},
+  {rank:9,job:"Freelance Writer/Copywriter (mid-tier)",sector:"Freelance",tl:"2025-2030",impact:"-1.6M",why:"LLMs produce bulk SEO content, marketing copy faster and cheaper. Mid-tier commodity writing collapses first.",degree:"English/journalism or none",path:"Evolve to: AI content strategist, brand voice director, expert-niche writer. Top 10% earn MORE as AI floods market with average content."},
+  {rank:10,job:"Freelance Graphic Designer (spec/marketing)",sector:"Freelance",tl:"2025-2029",impact:"-0.8M",why:"Midjourney, DALL-E, Firefly produce spec and marketing visuals faster and cheaper.",degree:"Design degree or self-taught",path:"Evolve to: AI art director, UX/UI designer for AI systems, brand identity strategist, motion designer."},
+  {rank:11,job:"Bank Teller",sector:"Banking",tl:"2025-2028",impact:"-0.6M",why:"AI chatbots and smart ATMs handle 95%+ of transactions. Branch visits down 8% annually.",degree:"High school/associate",path:"Financial advisor (CFP cert, 2-year path, $70-120K), AI banking support specialist, fraud analyst."},
+  {rank:12,job:"Insurance Claims Adjuster",sector:"Insurance",tl:"2026-2030",impact:"-1.1M",why:"Computer vision and ML adjudicate property and auto claims automatically at 10x speed.",degree:"Bachelor in business/finance",path:"Specialise in: complex litigation, fraud investigation, or AI claims model auditor."},
+  {rank:13,job:"Long-Haul Truck Driver",sector:"Transport",tl:"2028-2035",impact:"-1.5M",why:"Autonomous freight (Aurora, Waymo Via) deploys on interstate corridors from 2027. 5-7 year window.",degree:"CDL Class A",path:"Autonomous freight fleet supervisor (monitors 20+ trucks), local delivery, logistics hub manager."},
+  {rank:14,job:"Paralegal / Legal Assistant",sector:"Legal",tl:"2026-2031",impact:"-0.9M",why:"LLMs conduct legal research and contract review at near-partner quality for a fraction of the cost.",degree:"Associate/bachelor in legal studies",path:"AI legal tool specialist, contract intelligence manager, or law school."},
+  {rank:15,job:"Grocery Store Cashier/Stocker",sector:"Retail",tl:"2025-2028",impact:"-2.0M",why:"Computer vision just-walk-out stores scale. Robotic shelf-stockers deploy in large chains.",degree:"High school diploma",path:"Warehouse automation technician (6-month cert), fulfilment supervisor. Amazon and Walmart run internal programs."}
+];
+var RISING=[
+  {rank:1,job:"AI and Machine Learning Engineer",sector:"Technology",tl:"Now - critical",sal:"$110-250K",demand:"+340%",why:"Every industry deploys AI. Demand vastly outpaces supply for engineers who can build, train, and deploy models.",degree:"CS degree preferred OR self-taught",path:"Self-taught: fast.ai, HuggingFace, Coursera Deep Learning (Andrew Ng). Entry at $80K+ without degree if portfolio strong."},
+  {rank:2,job:"Space Systems Technician",sector:"Space Industry",tl:"2026-2035",sal:"$75-160K",demand:"+310%",why:"SpaceX, Blue Origin, Rocket Lab, and 600+ startups need propulsion, avionics, satellite assembly, and mission ops techs.",degree:"Aerospace engineering OR vocational",path:"2-year Aerospace Technology AAS. Military avionics is strongest pipeline. FAA A+P licence. SpaceX runs apprenticeship programs."},
+  {rank:3,job:"Autonomous Vehicle Technician",sector:"Transport/Tech",tl:"2025-2030",sal:"$55-115K",demand:"+280%",why:"Every robotaxi and delivery robot needs humans for maintenance, sensor calibration, repair. Cannot automate the technician.",degree:"Automotive/electronics vocational cert",path:"2-year automotive AAS + EV/AV module. Tesla, Waymo, Aurora run direct hiring pipelines. No 4-year degree required."},
+  {rank:4,job:"AI Governance and Ethics Officer",sector:"Compliance",tl:"Now",sal:"$90-200K",demand:"+270%",why:"EU AI Act, US executive orders, and corporate liability create urgent demand for AI systems auditors.",degree:"Law, policy, CS, or philosophy",path:"IEEE AI Ethics, ISACA AI governance certs. Best prep: law + tech literacy, or CS + ethics coursework."},
+  {rank:5,job:"Construction Robotics Operator",sector:"Construction",tl:"2027-2035",sal:"$60-98K",demand:"+240%",why:"Robotic bricklayers, concrete 3D printers, and AI earthmovers need skilled operators - more like pilots than labourers. On-site, cannot be offshored.",degree:"Vocational / apprenticeship",path:"4-year construction trades apprenticeship (LIUNA, IUOE) + robotics cert. OR 2-year construction tech degree."},
+  {rank:6,job:"Drone Operations Manager",sector:"Gig/Logistics",tl:"2025-2030",sal:"$55-95K",demand:"+220%",why:"Drone delivery, surveys, construction inspection, and emergency fleets need certified operators. Strong gig-to-stable path.",degree:"No degree - FAA certification",path:"FAA Part 107 Remote Pilot Cert (2-4 weeks study, $175 exam). Ideal path for displaced delivery workers."},
+  {rank:7,job:"Climate and Clean Energy Technician",sector:"Clean Energy",tl:"Now - decades",sal:"$45-145K",demand:"+200%",why:"Solar, wind, battery, EV charging. Global investment guarantees demand 20+ years. Cannot be offshored.",degree:"Trade cert or engineering degree",path:"Solar: NABCEP cert (2-4 weeks). Wind: 2-year AAS. Electrical engineer: 4-year BS for highest-paying roles."},
+  {rank:8,job:"Gig Platform Trust and Safety Analyst",sector:"Gig/Tech",tl:"Now",sal:"$60-100K",demand:"+190%",why:"Every platform (Uber, Airbnb, Fiverr, Upwork) needs humans to resolve disputes, detect fraud, audit algorithmic decisions.",degree:"Any bachelor or associate",path:"No specific degree. Platform safety courses on Coursera, LinkedIn Learning. DSP certification. Strong path for ex-customer service."},
+  {rank:9,job:"Space Tourism and Crew Specialist",sector:"Space Industry",tl:"2027-2035",sal:"$65-140K",demand:"+190%",why:"SpaceX Starship, Axiom Space, Blue Origin need life support, crew psychology, and operations specialists.",degree:"Aviation/hospitality + aerospace modules",path:"Aviation crew background + aerospace engineering courses online (12 months). Axiom Space hiring now."},
+  {rank:10,job:"Prompt Engineer / AI Product Designer",sector:"Technology",tl:"Now",sal:"$70-140K",demand:"+200%",why:"Every company deploying AI needs specialists who craft prompts, design workflows, and optimise model outputs.",degree:"Any background - portfolio-based",path:"Self-taught via Anthropic/OpenAI docs, deeplearning.ai prompt course (free). Build public portfolio. 3-6 months to first job."},
+  {rank:11,job:"Elder Care and Mental Health Specialist",sector:"Healthcare",tl:"Now - 2040",sal:"$38-100K",demand:"+180%",why:"Ageing populations and AI-driven isolation. Deliberately AI-resistant. Cannot be automated.",degree:"Certificate / associate in healthcare",path:"CNA: 4-12 weeks. LPN: 1-year. RN: 2-4 years. Mental health counsellor: bachelor + 2 years supervised practice."},
+  {rank:12,job:"Vertical Farm and AgriTech Operator",sector:"AgriTech",tl:"2026-2032",sal:"$50-90K",demand:"+165%",why:"AI-controlled indoor farms, food security, and supply chain resilience drive demand for hybrid agri-tech operators.",degree:"Horticulture/agriculture or biology",path:"2-year AAS in horticulture. CEA (Controlled Environment Agriculture) cert. No 4-year degree for operations roles."},
+  {rank:13,job:"Cybersecurity AI Analyst",sector:"Security",tl:"Now",sal:"$80-185K",demand:"+175%",why:"AI-powered cyberattacks require AI-augmented defenders. Cannot defend at scale without AI tools.",degree:"CS/cybersecurity or self-taught",path:"CompTIA Security+, CISSP, CEH (no degree required). Self-taught via TryHackMe, HackTheBox. Bootcamps: 12-24 weeks."},
+  {rank:14,job:"Freelance AI Consultant (Small Business)",sector:"Freelance",tl:"Now",sal:"$80-250K",demand:"+160%",why:"Millions of small businesses need AI implementation help but cannot afford full-time engineers.",degree:"Any business/tech background",path:"Build AI tool proficiency (ChatGPT, Claude, Make.com, Zapier). Specialise in 1-2 industries. Upwork, Toptal, direct outreach. 3-6 months to first clients."},
+  {rank:15,job:"Space Infrastructure Engineer",sector:"Space Industry",tl:"2028-2040",sal:"$95-200K",demand:"+250%",why:"Lunar habitats, orbital stations, and satellite mega-constellations require civil, structural, and systems engineers.",degree:"Engineering degree required",path:"4-year BS Engineering + space systems electives. SpaceX, Blue Origin, NASA contractors. MIT OpenCourseWare + NASA USRP internship."}
+];
+
+function radarTab(){
+  var wrap=mk("div","height:100%;overflow-y:auto;background:#020a14;padding:18px 22px");
+  var t=mk("div","font-size:21px;font-weight:700;color:#dceeff;margin-bottom:4px");t.textContent="Job Radar 2025-2035";wrap.appendChild(t);
+  var sb=mk("div","font-size:11px;color:#7faac8;margin-bottom:14px;line-height:1.7;max-width:640px");sb.textContent="Which jobs survive, which disappear - and exactly how to transition. Covers back-office, gig economy, construction, space, freelance, and all major sectors. Click any job to expand.";wrap.appendChild(sb);
+  var sw=mk("div","display:flex;gap:8px;margin-bottom:16px");
+  [["dying","15 Jobs Disappearing","#fc8181"],["rising","15 Jobs Emerging","#68d391"]].forEach(function(t2){
+    var active=JOB_TAB===t2[0];
+    var b=mk("button","background:"+(active?"rgba("+(t2[0]==="dying"?"252,129,129":"104,211,145")+",0.15)":"transparent")+";color:"+(active?t2[2]:"#3d6a8a")+";border:1px solid "+(active?t2[2]:"#112035")+";padding:8px 18px;border-radius:8px;font-size:11px;font-weight:700");
+    b.textContent=t2[1];b.onclick=function(){JOB_TAB=t2[0];JOB_OPEN=-1;redraw();};sw.appendChild(b);
+  });
+  wrap.appendChild(sw);
+  var jobs=JOB_TAB==="dying"?DYING:RISING;var ac=JOB_TAB==="dying"?"#fc8181":"#68d391";
+  jobs.forEach(function(j,i){
+    var isOpen=JOB_OPEN===i;
+    var card=mk("div","background:#071525;border-radius:10px;border:1px solid "+(isOpen?ac:"#112035")+";margin-bottom:8px;overflow:hidden");
+    var hdr=mk("div","display:flex;align-items:flex-start;gap:12px;padding:13px 16px;cursor:pointer");
+    var left2=mk("div","flex:1;min-width:0");
+    left2.innerHTML="<div style='display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap'><span style='background:"+ac+"18;color:"+ac+";border:1px solid "+ac+"30;padding:1px 8px;border-radius:7px;font-size:8px;font-weight:700'>#"+j.rank+"</span><span style='background:#091d30;color:#3d6a8a;border:1px solid #112035;padding:1px 7px;border-radius:5px;font-size:8px'>"+j.sector+"</span><span style='font-size:8.5px;color:#3d6a8a'>"+j.tl+"</span></div>"
+    +"<div style='font-size:13px;font-weight:700;color:#dceeff;margin-bottom:3px'>"+j.job+"</div>"
+    +"<div style='font-size:10px;color:#7faac8;line-height:1.65'>"+j.why+"</div>";
+    var right2=mk("div","flex-shrink:0;text-align:right;min-width:58px");
+    right2.innerHTML="<div style='font-size:14px;font-weight:700;color:"+ac+"'>"+(JOB_TAB==="dying"?j.impact:j.demand)+"</div>"+(JOB_TAB==="rising"?"<div style='font-size:8px;color:#3d6a8a;margin-top:2px'>"+j.sal+"</div>":"")+"<div style='font-size:11px;color:#3d6a8a;margin-top:5px;transform:"+(isOpen?"rotate(90deg)":"none")+";display:inline-block'>></div>";
+    hdr.appendChild(left2);hdr.appendChild(right2);card.appendChild(hdr);
+    hdr.onclick=function(){JOB_OPEN=isOpen?-1:i;redraw();};
+    if(isOpen){
+      var det=mk("div","border-top:1px solid #112035;padding:12px 16px;background:rgba(0,0,0,0.3)");
+      var gr=mk("div","display:grid;grid-template-columns:1fr 1fr;gap:10px");
+      var d1=mk("div","background:#091d30;border-radius:8px;padding:10px 12px;border:1px solid #112035");
+      d1.innerHTML="<div style='font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#3d6a8a;margin-bottom:6px'>Education / Credentials</div><div style='font-size:10px;color:#7faac8;line-height:1.75'>"+j.degree+"</div>";
+      var d2=mk("div","background:#091d30;border-radius:8px;padding:10px 12px;border-left:3px solid "+ac+";border-top:1px solid "+ac+"22;border-right:1px solid #112035;border-bottom:1px solid #112035");
+      d2.innerHTML="<div style='font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:"+ac+";margin-bottom:6px'>How To Learn / Transition</div><div style='font-size:10px;color:#7faac8;line-height:1.75'>"+j.path+"</div>";
+      gr.appendChild(d1);gr.appendChild(d2);det.appendChild(gr);card.appendChild(det);
+    }
+    wrap.appendChild(card);
+  });
+  var foot=mk("div","background:#091d30;border-radius:10px;border:1px solid #112035;padding:18px 22px;margin-top:10px");
+  foot.innerHTML="<div style='font-size:15px;font-weight:700;color:#dceeff;margin-bottom:8px'>The Transition Rule</div><div style='font-size:11px;color:#7faac8;line-height:1.9'>Jobs that disappear execute well-defined, repeatable tasks in predictable environments. Jobs that grow require physical presence in complex spaces, deep human trust, creative judgment, or supervision of AI systems.<br><br><strong style='color:#dceeff'>The credential that matters most in 2025-2035 is not a 4-year degree - it is demonstrated AI literacy combined with a skill AI cannot replicate.</strong></div>";
+  wrap.appendChild(foot);return wrap;
+}
+// NATIONS TAB
+var NATIONS=[
+  {n:"India",r:"South Asia",score:94,tc:"#fc8181",tag:"Maximum Exposure - The Perfect Storm",m:[{l:"Population",v:"1.43B",b:100,c:"#fc8181"},{l:"AI Risk",v:"96%",b:96,c:"#fc8181"},{l:"Governance",v:"28/100",b:28,c:"#f6ad55"},{l:"Skill Gap",v:"81%",b:81,c:"#f6e05e"},{l:"Climate",v:"92%",b:92,c:"#b794f4"}],wc:["BPO Collapse","Youth Unemployment","Climate Migration","Construction Robots"],a:"India faces the most acute convergence of crises. 12M back-office workers face LLM displacement. 60M construction workers face robotic competition in the 2030s. 600M under-25s enter a market where AI absorbs entry-level jobs. The BPO sector built on cheap English-speaking labour is structurally obsolete."},
+  {n:"Philippines",r:"SE Asia",score:88,tc:"#fc8181",tag:"BPO Nation - Existential Threat",m:[{l:"Population",v:"115M",b:8,c:"#fc8181"},{l:"AI Risk",v:"91%",b:91,c:"#fc8181"},{l:"Governance",v:"36/100",b:36,c:"#f6ad55"},{l:"Skill Gap",v:"55%",b:55,c:"#f6e05e"},{l:"Climate",v:"94%",b:94,c:"#b794f4"}],wc:["BPO Collapse","Typhoon Risk","Remittance Decline","Gig Displacement"],a:"BPO employs 1.3M Filipinos and accounts for ~9% of GDP. LLMs are an existential threat. Filipino freelancers on global platforms provide a partial buffer, but AI-generated creative work threatens even this. Climate vulnerability compounds the risk."},
+  {n:"Bangladesh",r:"South Asia",score:82,tc:"#fc8181",tag:"Garment Economy - Double Threat",m:[{l:"Population",v:"173M",b:12,c:"#fc8181"},{l:"AI Risk",v:"89%",b:89,c:"#fc8181"},{l:"Governance",v:"32/100",b:32,c:"#f6ad55"},{l:"Skill Gap",v:"78%",b:78,c:"#f6e05e"},{l:"Climate",v:"98%",b:98,c:"#b794f4"}],wc:["Sea Level Rise","RMG Automation","Construction Displacement","Climate Migration"],a:"Most climate-vulnerable large economy. RMG sector employs 4M facing robotic automation. Sea level rise threatens 17% of land by 2050. Automation plus climate plus weak governance creates extreme compound risk."},
+  {n:"Nigeria",r:"Africa",score:78,tc:"#f6ad55",tag:"Demographics vs Infrastructure Gap",m:[{l:"Population",v:"220M",b:15,c:"#fc8181"},{l:"AI Risk",v:"52%",b:52,c:"#f6ad55"},{l:"Governance",v:"22/100",b:22,c:"#fc8181"},{l:"Skill Gap",v:"84%",b:84,c:"#f6e05e"},{l:"Climate",v:"74%",b:74,c:"#b794f4"}],wc:["Gig Exclusion","Youth Unemployment","Oil Revenue Decline","Informal Economy"],a:"Motorcycle taxis, food delivery, and informal construction employ tens of millions. 60% youth unemployment meets a country adding 5M new workers annually. AI displacement is less about direct automation and more about exclusion from global platforms."},
+  {n:"China",r:"East Asia",score:61,tc:"#f6e05e",tag:"State-Managed Transition",m:[{l:"Population",v:"1.41B",b:99,c:"#fc8181"},{l:"AI Risk",v:"88%",b:88,c:"#f6ad55"},{l:"Governance",v:"52/100",b:52,c:"#f6e05e"},{l:"Skill Gap",v:"44%",b:44,c:"#f6e05e"},{l:"Climate",v:"68%",b:68,c:"#b794f4"}],wc:["Property Debt Crisis","US Decoupling","Youth Unemployment","Construction Overcapacity"],a:"60M construction workers and massive manufacturing administration face automation. State capacity to manage transition exceeds any democracy. Property debt crisis removes fiscal buffer. Space industry leadership creates positive opportunity."},
+  {n:"United States",r:"North America",score:58,tc:"#f6e05e",tag:"AI Inequality Amplifier",m:[{l:"Population",v:"335M",b:23,c:"#fc8181"},{l:"AI Risk",v:"91%",b:91,c:"#f6ad55"},{l:"Governance",v:"62/100",b:62,c:"#f6e05e"},{l:"Skill Gap",v:"42%",b:42,c:"#68d391"},{l:"Climate",v:"55%",b:55,c:"#b794f4"}],wc:["Gig Worker Displacement","Heartland Construction Loss","Political Polarisation","Space Opportunity"],a:"59M gig workers at risk - delivery, rideshare, freelancers. Space economy (400K new US jobs by 2030) and clean energy provide real upside. The challenge is distributing new jobs to displaced communities, not only coastal tech centres."},
+  {n:"Germany",r:"Europe",score:44,tc:"#68d391",tag:"Apprenticeship Advantage",m:[{l:"Population",v:"84M",b:6,c:"#fc8181"},{l:"AI Risk",v:"82%",b:82,c:"#f6ad55"},{l:"Governance",v:"78/100",b:78,c:"#68d391"},{l:"Skill Gap",v:"35%",b:35,c:"#68d391"},{l:"Climate",v:"42%",b:42,c:"#b794f4"}],wc:["Deindustrialisation","Energy Costs","Chinese EV Competition","Apprenticeship Resilience"],a:"Germany dual vocational system is a structural advantage. Electricians, plumbers, HVAC technicians produced at scale are highly AI-resistant. Kurzarbeit schemes cushion displacement. Best transition infrastructure in the world."},
+  {n:"Japan",r:"East Asia",score:42,tc:"#68d391",tag:"Robots as Solution Not Threat",m:[{l:"Population",v:"125M",b:9,c:"#fc8181"},{l:"AI Risk",v:"90%",b:90,c:"#f6ad55"},{l:"Governance",v:"74/100",b:74,c:"#68d391"},{l:"Skill Gap",v:"28%",b:28,c:"#68d391"},{l:"Climate",v:"45%",b:45,c:"#b794f4"}],wc:["Demographic Collapse","Labour Shortage","Construction Robot Leader","JAXA Growth"],a:"Japan is the one economy where robotic automation solves a problem - 1.3M annual labour shortage by 2030. Construction robots already deployed on major projects. JAXA and commercial space create genuine job growth."},
+  {n:"Australia",r:"Oceania",score:32,tc:"#68d391",tag:"Lucky Country - Strong Institutions",m:[{l:"Population",v:"26M",b:2,c:"#fc8181"},{l:"AI Risk",v:"87%",b:87,c:"#f6ad55"},{l:"Governance",v:"82/100",b:82,c:"#68d391"},{l:"Skill Gap",v:"22%",b:22,c:"#68d391"},{l:"Climate",v:"71%",b:71,c:"#b794f4"}],wc:["Mining Automation","Construction Tech","Space Agency Growth","Climate Risk"],a:"High AI exposure but exceptional institutional capacity. Mining automation (Pilbara autonomous trucks) already advanced. Australian Space Agency growth creates real opportunity. Tradesperson apprenticeships extremely high-value."}
+];
+function nationsTab(){
+  var wrap=mk("div","height:100%;overflow-y:auto;background:#020a14;padding:18px 22px");
+  var t=mk("div","font-size:21px;font-weight:700;color:#dceeff;margin-bottom:4px");t.textContent="Nation-by-Nation Impact";wrap.appendChild(t);
+  var sb=mk("div","font-size:11px;color:#7faac8;margin-bottom:14px");sb.textContent="Compound Crisis Score: AI exposure, governance, skill gaps, gig economy vulnerability, climate, and space opportunity.";wrap.appendChild(sb);
+  var critical=NATIONS.filter(function(n){return n.score>=70;}).length;
+  var high=NATIONS.filter(function(n){return n.score>=50&&n.score<70;}).length;
+  var mgble=NATIONS.filter(function(n){return n.score<50;}).length;
+  var sumrow=mk("div","display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px");
+  [["#fc8181",critical,"Critical (70+)"],["#f6ad55",high,"High Risk (50-69)"],["#68d391",mgble,"Manageable (<50)"]].forEach(function(s){
+    var card=mk("div","background:#071525;border:1px solid "+s[0]+"30;border-radius:9px;padding:8px 15px;text-align:center");
+    card.innerHTML="<div style='font-size:24px;font-weight:700;color:"+s[0]+"'>"+s[1]+"</div><div style='font-size:8px;font-weight:700;letter-spacing:1px;color:#3d6a8a;text-transform:uppercase'>"+s[2]+"</div>";
+    sumrow.appendChild(card);
+  });
+  wrap.appendChild(sumrow);
+  NATIONS.forEach(function(n,i){
+    var isOpen=NATION_OPEN===n.n;
+    var sc=n.score>=70?"#fc8181":n.score>=50?"#f6ad55":n.score>=35?"#f6e05e":"#68d391";
+    var card=mk("div","background:#071525;border-radius:10px;border:1px solid #112035;margin-bottom:10px;overflow:hidden");
+    var hdr=mk("div","display:flex;align-items:flex-start;gap:12px;padding:13px 16px;cursor:pointer");
+    var inf=mk("div","flex:1");
+    inf.innerHTML="<div style='font-size:15px;font-weight:700;color:#dceeff;margin-bottom:2px'>"+n.n+"</div><div style='font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#3d6a8a;margin-bottom:3px'>"+n.r+"</div><div style='font-size:10px;font-weight:600;color:"+n.tc+";margin-bottom:6px'>"+n.tag+"</div>";
+    var wc=mk("div","display:flex;flex-wrap:wrap;gap:3px");
+    n.wc.forEach(function(w){var b2=mk("span","background:"+n.tc+"12;color:"+n.tc+";border:1px solid "+n.tc+"28;padding:1px 7px;border-radius:8px;font-size:8px;font-weight:700");b2.textContent=w;wc.appendChild(b2);});
+    inf.appendChild(wc);
+    var scDiv=mk("div","text-align:right;flex-shrink:0");
+    scDiv.innerHTML="<div style='font-size:28px;font-weight:700;color:"+sc+";line-height:1'>"+n.score+"</div><div style='font-size:7.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#3d6a8a;margin-top:2px'>Crisis Score</div><div style='font-size:7.5px;color:#3d6a8a'>#"+(i+1)+"</div>";
+    hdr.appendChild(inf);hdr.appendChild(scDiv);card.appendChild(hdr);
+    hdr.onclick=function(){NATION_OPEN=isOpen?"":n.n;redraw();};
+    var mrow=mk("div","display:grid;grid-template-columns:repeat("+n.m.length+",1fr);border-top:1px solid #112035");
+    n.m.forEach(function(m){
+      var mc=mk("div","padding:7px 6px;text-align:center;border-right:1px solid #112035");
+      mc.innerHTML="<div style='font-size:11px;font-weight:700;color:"+m.c+";margin-bottom:2px'>"+m.v+"</div><div style='font-size:7px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#3d6a8a;margin-bottom:3px'>"+m.l+"</div><div style='height:2px;background:rgba(255,255,255,0.07);border-radius:2px'><div style='height:100%;width:"+m.b+"%;background:"+m.c+";opacity:0.55;border-radius:2px'></div></div>";
+      mrow.appendChild(mc);
+    });
+    card.appendChild(mrow);
+    if(isOpen){var an=mk("div","padding:12px 16px;background:rgba(0,0,0,0.3);border-top:1px solid #112035;font-size:11px;color:#7faac8;line-height:1.85");an.textContent=n.a;card.appendChild(an);}
+    wrap.appendChild(card);
+  });
+  var foot=mk("div","background:#091d30;border-radius:10px;border:1px solid #112035;padding:18px 22px;margin-top:6px");
+  foot.innerHTML="<div style='font-size:15px;font-weight:700;color:#dceeff;margin-bottom:8px'>The Universal Principle</div><div style='font-size:11px;color:#7faac8;line-height:1.85'>Across all nations: <strong style='color:#dceeff'>the quality of the transition is determined not by the speed of AI adoption, but by the strength of the institutions managing it.</strong> Countries with strong apprenticeship systems (Germany, Australia, Japan) are structurally better positioned.</div>";
+  wrap.appendChild(foot);return wrap;
+}
+// DATA OBSERVATORY
+function dataTab(){
+  var wrap=mk("div","height:100%;overflow-y:auto;background:#020a14;padding:18px 22px");
+  var t=mk("div","font-size:21px;font-weight:700;color:#dceeff;margin-bottom:4px");t.textContent="Data Observatory";wrap.appendChild(t);
+  var sb=mk("div","font-size:10px;color:#7faac8;margin-bottom:16px");sb.textContent="2000-2024 historical | 2025-2030 projected | Gig Economy, Construction and Space sectors included";wrap.appendChild(sb);
+  var years=[2000,2002,2004,2006,2008,2010,2012,2014,2016,2018,2020,2022,2024,2026,2028,2030];
+  var sectors=[
+    {n:"Data Entry",c:"#fc8181",v:[42,44,47,50,48,47,49,51,53,53,49,50,47,38,29,19]},
+    {n:"Customer Service",c:"#f6ad55",v:[28,30,33,36,34,34,36,39,42,44,39,42,41,34,26,17]},
+    {n:"Gig Delivery",c:"#f6e05e",v:[0.5,0.8,1.2,2.1,3.8,5.4,8.2,12,18,28,32,38,43,36,24,15]},
+    {n:"Construction Labour",c:"#b794f4",v:[38,39,40,43,40,39,41,45,48,52,49,51,53,46,36,25]},
+    {n:"AI/ML Roles",c:"#68d391",v:[0,0,0.1,0.2,0.4,0.8,1.8,3.2,5.8,10,16,25,34,47,58,68]},
+    {n:"Space Industry",c:"#4fd1c5",v:[0.1,0.1,0.2,0.3,0.4,0.6,0.9,1.4,2.1,3.2,4.8,7.2,11,16,25,36]},
+    {n:"Construction Robotics",c:"#63b3ed",v:[0,0,0,0.1,0.2,0.4,0.7,1.2,2.1,3.8,6.4,11,18,28,40,54]}
+  ];
+  var active2=new Set(sectors.map(function(s){return s.n;}));
+  var btnRow=mk("div","display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px");
+  var canWrap=mk("div","background:#071525;border-radius:10px;padding:12px;border:1px solid #112035;margin-bottom:12px");
+  var can=document.createElement("canvas");can.width=760;can.height=220;can.style.cssText="width:100%;height:auto;display:block;border-radius:6px";
+  canWrap.appendChild(can);
+  function drawChart(){
+    var ctx2=can.getContext("2d"),W2=can.width,H2=can.height;
+    var PAD={t:24,r:16,b:36,l:46};var CW2=W2-PAD.l-PAD.r,CH2=H2-PAD.t-PAD.b;
+    ctx2.clearRect(0,0,W2,H2);ctx2.fillStyle="#071525";ctx2.fillRect(0,0,W2,H2);
+    var maxV=0;sectors.forEach(function(s){s.v.forEach(function(v){if(v>maxV)maxV=v;});});maxV*=1.1;
+    for(var gi=0;gi<=4;gi++){
+      var gy=PAD.t+CH2-(gi/4)*CH2;
+      ctx2.strokeStyle="rgba(99,179,237,0.07)";ctx2.lineWidth=1;ctx2.beginPath();ctx2.moveTo(PAD.l,gy);ctx2.lineTo(PAD.l+CW2,gy);ctx2.stroke();
+      ctx2.fillStyle="rgba(126,170,210,0.5)";ctx2.font="8px monospace";ctx2.textAlign="right";ctx2.textBaseline="middle";ctx2.fillText(((gi/4)*maxV).toFixed(0)+"M",PAD.l-4,gy);
+    }
+    var pi=years.indexOf(2024);
+    if(pi>=0){
+      var px2=PAD.l+(pi/(years.length-1))*CW2;
+      ctx2.fillStyle="rgba(246,224,94,0.05)";ctx2.fillRect(px2,PAD.t,PAD.l+CW2-px2,CH2);
+      ctx2.strokeStyle="rgba(246,224,94,0.3)";ctx2.setLineDash([3,3]);ctx2.lineWidth=1;ctx2.beginPath();ctx2.moveTo(px2,PAD.t);ctx2.lineTo(px2,PAD.t+CH2);ctx2.stroke();ctx2.setLineDash([]);
+      ctx2.fillStyle="rgba(246,224,94,0.6)";ctx2.font="7px monospace";ctx2.textAlign="center";ctx2.fillText("NOW",px2,PAD.t-5);
+    }
+    years.forEach(function(yr2,idx){
+      if(idx%4!==0&&idx!==years.length-1)return;
+      var x2=PAD.l+(idx/(years.length-1))*CW2;
+      ctx2.fillStyle=yr2>=2024?"rgba(246,224,94,0.6)":"rgba(126,170,210,0.4)";ctx2.font="7.5px monospace";ctx2.textAlign="center";ctx2.textBaseline="top";ctx2.fillText(yr2,x2,PAD.t+CH2+5);
+    });
+    sectors.forEach(function(s){
+      ctx2.globalAlpha=active2.has(s.n)?1:0.08;ctx2.strokeStyle=s.c;ctx2.lineWidth=active2.has(s.n)?2:1;ctx2.lineJoin="round";ctx2.lineCap="round";
+      ctx2.beginPath();s.v.forEach(function(v,idx2){var x3=PAD.l+(idx2/(years.length-1))*CW2,y3=PAD.t+CH2-(v/maxV)*CH2;idx2===0?ctx2.moveTo(x3,y3):ctx2.lineTo(x3,y3);});ctx2.stroke();ctx2.globalAlpha=1;
+    });
+  }
+  sectors.forEach(function(s){
+    var b=mk("button","background:"+s.c+"18;color:"+s.c+";border:1px solid "+s.c+"44;padding:2px 9px;border-radius:11px;font-size:8.5px;font-weight:700");
+    b.textContent=s.n;b.onclick=function(){if(active2.has(s.n)){if(active2.size>1)active2.delete(s.n);}else active2.add(s.n);drawChart();};
+    btnRow.appendChild(b);
+  });
+  wrap.appendChild(btnRow);wrap.appendChild(canWrap);
+  setTimeout(drawChart,0);
+  var cards=mk("div","display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:6px");
+  sectors.forEach(function(s){
+    var last=s.v[s.v.length-1],first=s.v[0],net=((last-first)/Math.max(first,0.1)*100).toFixed(0);
+    var card=mk("div","background:#071525;border:1px solid #112035;border-radius:8px;padding:9px 11px");
+    card.innerHTML="<div style='display:flex;align-items:center;gap:4px;margin-bottom:5px'><div style='width:6px;height:6px;border-radius:50%;background:"+s.c+"'></div><div style='font-size:9px;font-weight:700;color:#dceeff'>"+s.n+"</div></div>"
+    +"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;text-align:center'>"
+    +"<div><div style='font-size:11px;font-weight:700;color:"+s.c+"'>"+first+"M</div><div style='font-size:6.5px;color:#3d6a8a'>2000</div></div>"
+    +"<div><div style='font-size:11px;font-weight:700;color:"+s.c+"'>"+last+"M</div><div style='font-size:6.5px;color:#3d6a8a'>2030</div></div>"
+    +"<div><div style='font-size:11px;font-weight:700;color:"+(parseFloat(net)>=0?"#68d391":"#fc8181")+"'>"+(net>0?"+":"")+net+"%</div><div style='font-size:6.5px;color:#3d6a8a'>net</div></div>"
+    +"</div>";
+    cards.appendChild(card);
+  });
+  wrap.appendChild(cards);return wrap;
+}
+
+// GDP TAB
+function gdpTab(){
+  var wrap=mk("div","height:100%;overflow-y:auto;background:#020a14;padding:18px 22px");
+  var t=mk("div","font-size:21px;font-weight:700;color:#dceeff;margin-bottom:4px");t.textContent="GDP and Economic Shock";wrap.appendChild(t);
+  var sb=mk("div","font-size:11px;color:#7faac8;margin-bottom:14px;line-height:1.7");sb.textContent="10-year projections including gig economy disruption, construction robotics, and space industry emergence.";wrap.appendChild(sb);
+  var data=[
+    {name:"South Asia",col:"#fc8181",gdp:5.2,net:"-0.8",shocks:[{yr:"2025-27",l:"BPO and Gig Collapse",imp:-1.4,j:2.1},{yr:"2027-29",l:"Construction Robots Deploy",imp:-1.8,j:3.8},{yr:"2030-32",l:"Policy Response Lag",imp:-0.9,j:4.6},{yr:"2033-35",l:"Digital Recovery Begins",imp:+0.6,j:5.1}],countries:[{n:"India",h:-3.8,at:"25M"},{n:"Bangladesh",h:-4.2,at:"6.8M"},{n:"Pakistan",h:-2.9,at:"4.1M"}]},
+    {name:"East Asia",col:"#f6e05e",gdp:22.1,net:"+8.9",shocks:[{yr:"2025-27",l:"State-Managed Dip",imp:-0.6,j:1.5},{yr:"2027-29",l:"Property and AI Compound",imp:-2.1,j:3.8},{yr:"2030-32",l:"Space and Tech Export Surge",imp:+1.4,j:4.9},{yr:"2033-35",l:"AI Manufacturing Dominance",imp:+3.4,j:6.2}],countries:[{n:"China",h:-1.8,at:"18M"},{n:"Japan",h:-0.9,at:"4.2M"},{n:"South Korea",h:-1.1,at:"2.1M"}]},
+    {name:"North America",col:"#63b3ed",gdp:28.5,net:"+4.2",shocks:[{yr:"2025-27",l:"Gig Delivery Wave 1",imp:-0.8,j:1.8},{yr:"2027-29",l:"Rideshare Displacement",imp:-1.9,j:3.2},{yr:"2030-32",l:"Space Economy Emerges",imp:+0.8,j:4.1},{yr:"2033-35",l:"New Equilibrium",imp:+2.1,j:5.8}],countries:[{n:"United States",h:-2.1,at:"12M"},{n:"Canada",h:-1.4,at:"1.8M"},{n:"Mexico",h:-3.1,at:"4.8M"}]},
+    {name:"Africa",col:"#f687b3",gdp:3.1,net:"-1.2",shocks:[{yr:"2025-27",l:"Leapfrog Opportunity Lost",imp:-0.2,j:0.1},{yr:"2027-29",l:"Gulf Remittance Collapse",imp:-1.8,j:0.8},{yr:"2030-32",l:"Mobile Gig Disruption",imp:-1.2,j:2.1},{yr:"2033-35",l:"Digital Divergence",imp:+0.8,j:1.4}],countries:[{n:"Nigeria",h:-1.9,at:"3.1M"},{n:"Ethiopia",h:-2.4,at:"2.8M"},{n:"South Africa",h:-1.2,at:"1.8M"}]}
+  ];
+  var netBar=mk("div","background:#071525;border-radius:10px;padding:14px 18px;border:1px solid #112035;margin-bottom:14px");
+  netBar.innerHTML="<div style='font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#3d6a8a;margin-bottom:10px'>10-Year Net GDP Impact</div>";
+  data.forEach(function(r){
+    var ip=r.net.startsWith("+"),val=Math.abs(parseFloat(r.net)),bw=Math.min(val/9*100,100);
+    var row=mk("div","display:flex;align-items:center;gap:10px;margin-bottom:8px");
+    row.innerHTML="<div style='width:110px;font-size:10px;font-weight:600;color:#dceeff;flex-shrink:0'>"+r.name+"</div>"
+    +"<div style='flex:1;height:15px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;position:relative'>"
+    +"<div style='position:absolute;"+(ip?"left":"right")+":0;height:100%;width:"+bw+"%;background:"+(ip?r.col:"#fc8181")+"cc;border-radius:4px'></div></div>"
+    +"<div style='font-size:11px;font-weight:700;color:"+(ip?r.col:"#fc8181")+";min-width:46px;text-align:right'>"+r.net+"T</div>";
+    netBar.appendChild(row);
+  });
+  wrap.appendChild(netBar);
+  var grid2=mk("div","display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px");
+  data.forEach(function(r){
+    var card=mk("div","background:#071525;border-radius:10px;border:1px solid #112035;overflow:hidden");
+    var hd=mk("div","background:"+r.col+"0c;padding:11px 14px;border-bottom:1px solid "+r.col+"18");
+    hd.innerHTML="<div style='font-size:15px;font-weight:700;color:#dceeff'>"+r.name+"</div><div style='font-size:9px;color:#3d6a8a'>GDP 2024: $"+r.gdp+"T | Net 10yr: <span style=\"color:"+(r.net.startsWith("+")? r.col:"#fc8181")+"\">"+r.net+"T</span></div>";
+    card.appendChild(hd);
+    var body2=mk("div","padding:10px 14px");
+    r.shocks.forEach(function(s){
+      var ip2=s.imp>=0;
+      var row2=mk("div","display:flex;gap:10px;margin-bottom:7px;padding-bottom:7px;border-bottom:1px solid #0b1928");
+      row2.innerHTML="<div style='flex-shrink:0;width:62px'><div style='font-size:7.5px;font-weight:700;color:"+r.col+"'>"+s.yr+"</div><div style='font-size:13px;font-weight:700;color:"+(ip2?"#68d391":"#fc8181")+";line-height:1'>"+(ip2?"+":"")+s.imp+"%</div><div style='font-size:7.5px;color:#3d6a8a'>"+s.j+"M jobs</div></div><div style='flex:1;font-size:9.5px;color:#7faac8;line-height:1.65'><strong style=\"color:#dceeff\">"+s.l+"</strong></div>";
+      body2.appendChild(row2);
+    });
+    card.appendChild(body2);
+    var foot2=mk("div","padding:0 14px 10px");
+    r.countries.forEach(function(ct){
+      var row3=mk("div","display:flex;gap:8px;align-items:center;padding:3px 0;border-top:1px solid #0b1928");
+      row3.innerHTML="<span style='flex:1;font-size:10px;font-weight:600;color:#dceeff'>"+ct.n+"</span><span style='font-size:8.5px;color:#3d6a8a'>"+ct.at+" at risk</span><span style='font-size:10px;font-weight:700;color:"+(ct.h<0?"#fc8181":"#68d391")+"'>"+(ct.h<0?"":"+")+"$"+ct.h+"%</span>";
+      foot2.appendChild(row3);
+    });
+    card.appendChild(foot2);grid2.appendChild(card);
+  });
+  wrap.appendChild(grid2);return wrap;
+}
+// CONFLICT TAB
+function conflictTab(){
+  var wrap=mk("div","height:100%;overflow-y:auto;background:#020a14;padding:18px 22px");
+  var t=mk("div","font-size:21px;font-weight:700;color:#dceeff;margin-bottom:4px");t.textContent="Impending Conflict Vectors";wrap.appendChild(t);
+  var sb=mk("div","font-size:11px;color:#7faac8;margin-bottom:16px;line-height:1.7");sb.textContent="AI displacement, gig economy collapse, construction robotics, space militarisation, and climate migration as geopolitical triggers.";wrap.appendChild(sb);
+  var items=[
+    {sev:"Critical",col:"#fc8181",title:"AI Weapons and Autonomous Military",sub:"US | China | Russia | Israel",prob:"85%",body:"Autonomous lethal weapons race accelerates faster than governance. AI systems compress response times below human judgment speed. Every displaced worker in a weak state is a potential recruit for non-state actors deploying open-source AI weapons.",fps:["Taiwan Strait: response times compress below human control","Drone swarms deployable by non-state actors with free AI tools","Nuclear early-warning: AI false-positive risk is catastrophic"],mit:"International AI weapons convention. Human-in-the-loop mandates for military procurement."},
+    {sev:"Critical",col:"#fc8181",title:"Climate Migration meets Gig Economy Collapse",sub:"South Asia | Africa | SE Asia",prob:"91%",body:"280M climate migrants by 2050 combined with 25M+ gig workers displaced by automation creates a compound displacement crisis. Receiving countries face political backlash. Algorithmic border control systems may automate discrimination.",fps:["Bangladesh: 25M climate + 5M automation displaced by 2035","Philippines: typhoon risk + BPO collapse compounds","Gulf states: automated construction + migrant worker crisis"],mit:"Global migration governance. Automation dividend to fund transition and resettlement."},
+    {sev:"High",col:"#f6ad55",title:"Space Militarisation and Satellite Warfare",sub:"US | China | Russia | Private",prob:"72%",body:"Satellite constellations (SpaceX Starlink, Chinese LEO) are simultaneously civilian infrastructure and military assets. Anti-satellite weapons already tested by China, Russia, India, US. A satellite war would disable GPS, finance, communications globally.",fps:["Anti-satellite weapons: all major powers have kinetic and electronic ASAT","Starlink used in Ukraine war: set precedent for civilian space as military asset","Debris cascades could make LEO unusable for decades"],mit:"Outer Space Treaty update for commercial era. Anti-ASAT test moratorium."},
+    {sev:"High",col:"#f6ad55",title:"Gig Economy Governance Vacuum",sub:"Global",prob:"68%",body:"59M US gig workers, 15M UK gig workers, 400M informal gig workers in developing world have no social protection. Mass displacement without safety nets drives political radicalisation. Platforms operating across jurisdictions evade national regulation.",fps:["DoorDash and Uber drivers: average $14/hr before expenses vs living wage of $22/hr","Algorithmic wage-setting: workers cannot negotiate against opaque systems","Platform monopolies: winner-takes-all dynamics destroy local alternatives"],mit:"Portable benefits systems. Platform cooperative models. Anti-monopoly enforcement."},
+    {sev:"Moderate",col:"#f6e05e",title:"Construction Robot Displacement and Urban Instability",sub:"India | China | Brazil | Nigeria",prob:"58%",body:"60M+ construction workers globally face robotic displacement in markets with no safety nets. In India, Bangladesh, and Sub-Saharan Africa, male construction workers support entire families. Mass displacement without transition programs drives urban instability.",fps:["India: 60M construction workers facing displacement 2028-2035","Brazil favelas: informal construction workforce with no transition infrastructure","China: rural migrant workers in construction are most exposed"],mit:"Public construction robotics operators training programs. Transition stipends linked to apprenticeship enrollment."},
+    {sev:"Moderate",col:"#f6e05e",title:"AI Freelance Platform Monopoly",sub:"Global",prob:"52%",body:"Upwork, Fiverr, Toptal face existential disruption as AI replaces mid-tier freelance work. Simultaneously, AI tools enable the top 5% of freelancers to dominate globally. This winner-takes-most dynamic will concentrate income and destroy livelihoods for millions of platform workers in developing markets.",fps:["Fiverr: AI-generated logos already 40% of gig orders on platform","Upwork: AI-matched clients increasingly bypass platform entirely","Philippines freelancers: 1.5M depend on graphic design, copywriting, data entry"],mit:"Universal basic services funded by automation productivity gains. Platform taxation."}
+  ];
+  items.forEach(function(item){
+    var card=mk("div","background:#071525;border-radius:10px;border:1px solid "+item.col+"30;margin-bottom:14px;overflow:hidden");
+    var hd=mk("div","background:"+item.col+"0c;padding:12px 16px;border-bottom:1px solid "+item.col+"18");
+    hd.innerHTML="<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px'>"
+    +"<span style='background:"+item.col+"22;color:"+item.col+";border:1px solid "+item.col+"44;padding:1px 8px;border-radius:7px;font-size:8px;font-weight:700'>"+item.sev+"</span>"
+    +"<span style='font-size:8px;color:#3d6a8a'>"+item.sub+"</span>"
+    +"<span style='margin-left:auto;font-size:12px;font-weight:700;color:"+item.col+"'>"+item.prob+" prob</span></div>"
+    +"<div style='font-size:14px;font-weight:700;color:#dceeff'>"+item.title+"</div>";
+    card.appendChild(hd);
+    var body3=mk("div","padding:12px 16px");
+    var p=mk("div","font-size:10.5px;color:#7faac8;line-height:1.8;margin-bottom:10px");p.textContent=item.body;body3.appendChild(p);
+    var fl=mk("div","background:#091d30;border-radius:8px;padding:9px 12px;margin-bottom:10px;border:1px solid #112035");
+    fl.innerHTML="<div style='font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#3d6a8a;margin-bottom:6px'>Flashpoints</div>";
+    item.fps.forEach(function(f){var r=mk("div","font-size:10px;color:#7faac8;padding:2px 0;border-bottom:1px solid #0b1928");r.textContent="> "+f;fl.appendChild(r);});
+    body3.appendChild(fl);
+    var mit=mk("div","font-size:10px;color:#68d391;line-height:1.7");mit.innerHTML="<strong style='color:#dceeff'>Mitigation: </strong>"+item.mit;body3.appendChild(mit);
+    card.appendChild(body3);wrap.appendChild(card);
+  });
+  return wrap;
+}
+
+// HOPE TAB
+function hopeTab(){
+  var wrap=mk("div","height:100%;overflow-y:auto;background:#020a14;padding:18px 22px");
+  var t=mk("div","font-size:21px;font-weight:700;color:#dceeff;margin-bottom:4px");t.textContent="The Opportunity Ahead";wrap.appendChild(t);
+  var sb=mk("div","font-size:11px;color:#7faac8;margin-bottom:20px;line-height:1.7;max-width:640px");sb.textContent="Every technological revolution has created more jobs than it destroyed - eventually. The difference this time is whether we build the bridges fast enough. Here is the genuine case for optimism.";wrap.appendChild(sb);
+  var items=[
+    {col:"#68d391",title:"Space Economy: 1.8 Trillion by 2035",sub:"$1.8T projected | 400K+ new US jobs | Global participation",body:"The space economy is the most concrete new sector emerging at scale. SpaceX Starship enables rapid satellite deployment, lunar logistics, and eventually Mars. Blue Origin, Rocket Lab, and 600+ startups are creating supply chains that need technicians, operators, engineers, and support workers. The skills pipeline is opening at community colleges and trade schools - not just MIT.",wins:["SpaceX Starship: full reusability makes space access cost-competitive","Axiom Space: commercial space station opens 2026 - first privately operated jobs in orbit","Moon to Mars: NASA Artemis creates construction and operations jobs in the 2030s","Satellite internet: Starlink and OneWeb connecting 3B people who cannot currently access gig economy platforms"]},
+    {col:"#4fd1c5",title:"Clean Energy: 38 Million Jobs by 2030",sub:"IEA projection | Cannot be offshored | Trade skill pathway",body:"The International Energy Agency projects 38M clean energy jobs globally by 2030 - more than the entire fossil fuel sector today. Solar, wind, battery storage, EV charging, and building efficiency are physical work that cannot be automated or offshored. The training pathway is 2-4 weeks for entry level to 4 years for engineers - accessible at every education level.",wins:["Solar: fastest-growing energy source globally, LCOE now below coal in every market","Wind: offshore wind platforms create permanent operations jobs","EV transition: every ICE mechanic can retrain as EV technician in 6 months","Battery storage: grid-scale and residential storage is a decade-long installation wave"]},
+    {col:"#63b3ed",title:"The Gig Economy Evolves - Does Not Die",sub:"Platforms pivot | New categories emerge | Freelance AI consultants",body:"The gig economy is disrupted, not destroyed. Delivery and rideshare decline, but new gig categories emerge: drone operations, AI consulting, trust and safety, platform moderation, elder care, and on-site construction robotics support. The difference is that new gig work requires skill certifications that provide a floor wage and career progression that commodity gig work never offered.",wins:["Drone delivery operators: transition path from delivery gig with same operational mindset","AI consulting: small business owners need human help implementing AI tools","Platform trust and safety: every platform needs human judgment for edge cases","Elder care gig: AI-resistant, high-demand, flexible scheduling matches gig worker preferences"]},
+    {col:"#b794f4",title:"Construction Robotics Creates More Than It Destroys",sub:"Japan model | On-site work | Cannot be offshored",body:"Japan demonstrates the positive case: where construction robot adoption is highest, wages have risen and labour shortages are being addressed rather than exacerbated. The robot operator role is skilled, on-site, AI-resistant in itself (supervising AI is not automatable), and pays more than the manual labour it replaces. The transition infrastructure is trade apprenticeship - the most proven workforce development system in history.",wins:["Komatsu and Caterpillar: hiring machine AI supervisors at $65-85K to operate autonomous fleets","3D concrete printing: trained operators are more like architects than labourers","Drone site survey operators: construction sites are the largest single use case for commercial drones","Japan apprenticeship model: replicable in any country with functional vocational education"]}
+  ];
+  items.forEach(function(item){
+    var card=mk("div","background:#071525;border-radius:10px;border:1px solid "+item.col+"30;margin-bottom:14px;overflow:hidden");
+    var hd=mk("div","background:"+item.col+"0c;padding:12px 16px;border-bottom:1px solid "+item.col+"18");
+    hd.innerHTML="<div style='font-size:8px;color:#3d6a8a;margin-bottom:3px'>"+item.sub+"</div><div style='font-size:15px;font-weight:700;color:#dceeff'>"+item.title+"</div>";
+    card.appendChild(hd);
+    var body4=mk("div","padding:12px 16px");
+    var p=mk("div","font-size:10.5px;color:#7faac8;line-height:1.8;margin-bottom:10px");p.textContent=item.body;body4.appendChild(p);
+    var wl=mk("div","background:#091d30;border-radius:8px;padding:9px 12px;border:1px solid #112035");
+    wl.innerHTML="<div style='font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:"+item.col+";margin-bottom:6px'>Early Wins</div>";
+    item.wins.forEach(function(w){var r=mk("div","font-size:10px;color:#7faac8;padding:2px 0;border-bottom:1px solid #0b1928");r.textContent="> "+w;wl.appendChild(r);});
+    body4.appendChild(wl);card.appendChild(body4);wrap.appendChild(card);
+  });
+  var foot=mk("div","background:linear-gradient(135deg,#040d1a,#071525);border-radius:10px;border:1px solid #112035;padding:20px 22px;margin-top:4px");
+  foot.innerHTML="<div style='font-size:17px;font-weight:700;color:#dceeff;margin-bottom:10px'>The Bottom Line</div><div style='font-size:11px;color:#7faac8;line-height:1.9;max-width:640px'>This is not the first time automation has restructured the global economy. The Industrial Revolution displaced artisans and agricultural workers. Electrification destroyed the ice trade and the gas lamp industry. Every wave of automation eventually created more jobs than it destroyed - but only because societies built the institutions: public education, trade unions, social insurance, and vocational training.<br><br><strong style='color:#dceeff'>The question is not whether AI creates opportunity. It does, and the data shows it clearly in space tech, clean energy, construction robotics, elder care, and cybersecurity. The question is whether we build the transition infrastructure fast enough for the people who cannot wait a decade for the new equilibrium to emerge.</strong></div>";
+  wrap.appendChild(foot);return wrap;
+}
+
+// START
+redraw();
+</script>
+</body>
+</html>
